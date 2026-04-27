@@ -9,7 +9,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-serif);
+  /* headings use serif — the key change */
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,85 +49,210 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ─────────────────────────────────────────────
+   LIGHT MODE — Literary Day
+   Parchment whites, walnut browns, amber gold.
+   The visual language of a well-loved library.
+───────────────────────────────────────────── */
 :root {
   --font-sans: var(--font-mona-sans);
   --font-serif: var(--font-ibm-plex-serif);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+
+  /* Core surfaces — warm parchment scale */
+  --background: oklch(0.972 0.018 82);
+  /* aged paper cream        */
+  --foreground: oklch(0.192 0.025 55);
+  /* deep walnut ink         */
+
+  --card: oklch(0.958 0.020 80);
+  /* slightly richer parchment */
+  --card-foreground: oklch(0.192 0.025 55);
+
+  --popover: oklch(0.958 0.020 80);
+  --popover-foreground: oklch(0.192 0.025 55);
+
+  /* Primary — rich chestnut brown (book spine leather) */
+  --primary: oklch(0.360 0.065 52);
+  --primary-foreground: oklch(0.972 0.018 82);
+
+  /* Secondary — warm sand */
+  --secondary: oklch(0.924 0.028 78);
+  --secondary-foreground: oklch(0.280 0.040 55);
+
+  /* Muted — soft linen */
+  --muted: oklch(0.924 0.028 78);
+  --muted-foreground: oklch(0.510 0.030 62);
+  /* faded sepia             */
+
+  /* Accent — warm sandstone (hover states, highlights) */
+  --accent: oklch(0.908 0.032 76);
+  --accent-foreground: oklch(0.280 0.040 55);
+
+  /* Semantic */
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+
+  /* Borders & inputs — warm tan */
+  --border: oklch(0.880 0.030 76);
+  --input: oklch(0.880 0.030 76);
+
+  /* Ring — amber gold (focus glow) */
+  --ring: oklch(0.680 0.095 72);
+
+  /* Chart — warm sepia progression */
+  --chart-1: oklch(0.680 0.095 72);
+  /* amber gold              */
+  --chart-2: oklch(0.510 0.075 55);
+  /* warm caramel            */
+  --chart-3: oklch(0.780 0.070 82);
+  /* honey                   */
+  --chart-4: oklch(0.380 0.055 50);
+  /* dark molasses           */
+  --chart-5: oklch(0.840 0.045 88);
+  /* light wheat             */
+
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Sidebar — slightly darker parchment to create depth */
+  --sidebar: oklch(0.945 0.024 78);
+  --sidebar-foreground: oklch(0.192 0.025 55);
+  --sidebar-primary: oklch(0.360 0.065 52);
+  --sidebar-primary-foreground: oklch(0.972 0.018 82);
+  --sidebar-accent: oklch(0.908 0.032 76);
+  --sidebar-accent-foreground: oklch(0.280 0.040 55);
+  --sidebar-border: oklch(0.865 0.032 74);
+  --sidebar-ring: oklch(0.680 0.095 72);
 }
 
+/* ─────────────────────────────────────────────
+   DARK MODE — Inkwell Night
+   Deep mahogany, aged ivory, candlelit gold.
+   Like reading by lamplight in a study.
+───────────────────────────────────────────── */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Core surfaces — inkwell & aged leather */
+  --background: oklch(0.150 0.020 48);
+  /* very dark mahogany      */
+  --foreground: oklch(0.955 0.018 84);
+  /* warm ivory              */
+
+  --card: oklch(0.205 0.022 50);
+  /* dark walnut             */
+  --card-foreground: oklch(0.955 0.018 84);
+
+  --popover: oklch(0.205 0.022 50);
+  --popover-foreground: oklch(0.955 0.018 84);
+
+  /* Primary — warm aged gold (like gilded book titles) */
+  --primary: oklch(0.860 0.075 80);
+  --primary-foreground: oklch(0.205 0.022 50);
+
+  /* Secondary — dark warm surface */
+  --secondary: oklch(0.265 0.025 50);
+  --secondary-foreground: oklch(0.955 0.018 84);
+
+  /* Muted */
+  --muted: oklch(0.265 0.025 50);
+  --muted-foreground: oklch(0.650 0.028 68);
+  /* warm taupe              */
+
+  /* Accent */
+  --accent: oklch(0.265 0.025 50);
+  --accent-foreground: oklch(0.955 0.018 84);
+
+  /* Semantic */
   --destructive: oklch(0.704 0.191 22.216);
+
+  /* Borders — warm dark dividers */
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --input: oklch(1 0 0 / 14%);
+
+  /* Ring — bright amber focus */
+  --ring: oklch(0.720 0.105 75);
+
+  /* Chart — warm dark palette */
+  --chart-1: oklch(0.780 0.095 78);
+  /* warm amber              */
+  --chart-2: oklch(0.650 0.028 68);
+  /* taupe                   */
+  --chart-3: oklch(0.860 0.075 80);
+  /* gold                    */
+  --chart-4: oklch(0.450 0.040 55);
+  /* brown                   */
+  --chart-5: oklch(0.320 0.028 50);
+  /* dark bark               */
+
+  /* Sidebar */
+  --sidebar: oklch(0.190 0.022 50);
+  --sidebar-foreground: oklch(0.955 0.018 84);
+  --sidebar-primary: oklch(0.740 0.115 272);
+  /* kept blue for nav accent */
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.265 0.025 50);
+  --sidebar-accent-foreground: oklch(0.955 0.018 84);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.720 0.105 75);
 }
 
+/* ─────────────────────────────────────────────
+   BASE LAYER
+───────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
+    /* Subtle paper grain — psychological warmth without visual noise */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
   }
+
   html {
     @apply font-sans;
+    /* Warm text rendering for the literary feel */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Headings use IBM Plex Serif for the bookish character */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  /* Selection — warm amber highlight like a highlighter on paper */
+  ::selection {
+    background-color: oklch(0.820 0.090 80 / 35%);
+    color: inherit;
+  }
+
+  .dark ::selection {
+    background-color: oklch(0.720 0.105 75 / 30%);
+    color: inherit;
+  }
+
+  /* Scrollbar — subtle warm tone */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.780 0.030 74);
+    border-radius: 999px;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: oklch(0.320 0.025 52);
   }
 }
