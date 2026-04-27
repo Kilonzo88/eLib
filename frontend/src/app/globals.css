@@ -58,17 +58,17 @@
   --font-sans: var(--font-mona-sans);
   --font-serif: var(--font-ibm-plex-serif);
 
-  /* Core surfaces — warm parchment scale */
-  --background: oklch(0.972 0.018 82);
-  /* aged paper cream        */
+  /* Core surfaces — Cream (#FFFDD0) parchment scale */
+  --background: #FFFDD0;
+  /* classic cream paper      */
   --foreground: oklch(0.192 0.025 55);
   /* deep walnut ink         */
 
-  --card: oklch(0.958 0.020 80);
-  /* slightly richer parchment */
+  --card: #F9F7D9;
+  /* slightly richer cream    */
   --card-foreground: oklch(0.192 0.025 55);
 
-  --popover: oklch(0.958 0.020 80);
+  --popover: #F9F7D9;
   --popover-foreground: oklch(0.192 0.025 55);
 
   /* Primary — rich chestnut brown (book spine leather) */
@@ -254,5 +254,19 @@
 
   .dark ::-webkit-scrollbar-thumb {
     background: oklch(0.320 0.025 52);
+  }
+
+  .logo-text {
+    @apply font-serif text-xl font-semibold tracking-tight ml-2;
+    color: var(--foreground);
+  }
+
+  .nav-link-base {
+    @apply text-sm font-medium transition-all duration-200 hover:text-[var(--primary)] px-3 py-1.5 rounded-full;
+  }
+
+  .nav-link-active {
+    @apply text-[var(--primary)] font-semibold shadow-sm;
+    background-color: oklch(0.820 0.090 80 / 15%);
   }
 }
