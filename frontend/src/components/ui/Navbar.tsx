@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs"
 
 const navItems = [
     { label: "Library", href: "/" },
@@ -43,6 +44,20 @@ const Navbar = () => {
                             </Link>
                         );
                     })}
+                    
+                    <div className="flex gap-4 items-center ml-4 border-l border-[var(--border)] pl-4">
+                        <Show when="signed-out">
+                            <SignInButton mode="modal">
+                                <button className="text-sm font-medium hover:text-[var(--primary)] transition-colors">Sign In</button>
+                            </SignInButton>
+                            <SignUpButton mode="modal">
+                                <button className="text-sm font-medium bg-[var(--primary)] text-[var(--primary-foreground)] px-4 py-2 rounded-full hover:opacity-90 transition-opacity">Get Started</button>
+                            </SignUpButton>
+                        </Show>
+                        <Show when="signed-in">
+                            <UserButton />
+                        </Show>
+                    </div>
                 </nav>
             </div>
         </header>
