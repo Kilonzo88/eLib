@@ -28,7 +28,7 @@ const Navbar = () => {
                     <span className="logo-text">eLib</span>
                 </Link>
 
-                <nav className="flex gap-8 items-center">
+                <nav className="hidden md:flex gap-8 items-center">
                     {navItems.map(({ label, href }) => {
                         const isActive = pathName === href || (href !== '/' && pathName.startsWith(href));
 
@@ -46,7 +46,7 @@ const Navbar = () => {
                         );
                     })}
 
-                    <div className="flex gap-4 items-center ml-4 border-l border-[var(--border)] pl-4">
+                    <div className="flex gap-4 items-center md:ml-4 md:border-l border-[var(--border)] md:pl-4">
                         <Show when="signed-out">
                             <SignInButton mode="modal">
                                 <button className="text-sm font-medium hover:text-[var(--primary)] transition-colors">Sign In</button>
@@ -68,6 +68,18 @@ const Navbar = () => {
                         </Show>
                     </div>
                 </nav>
+
+                {/* Mobile: auth only */}
+                <div className="flex md:hidden gap-3 items-center">
+                    <Show when="signed-out">
+                        <SignInButton mode="modal">
+                            <button className="text-sm font-medium hover:text-[var(--primary)] transition-colors">Sign In</button>
+                        </SignInButton>
+                    </Show>
+                    <Show when="signed-in">
+                        <UserButton />
+                    </Show>
+                </div>
             </div>
         </header>
     )
