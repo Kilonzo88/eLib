@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs"
+import { Show, SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs"
 
 const navItems = [
     { label: "Library", href: "/" },
@@ -13,6 +13,7 @@ const navItems = [
 
 const Navbar = () => {
     const pathName = usePathname();
+    const { user } = useUser(); // Destructure the user object
     return (
         <header className="w-full fixed top-0 left-0 z-50 bg-[var(--background)] border-b border-[var(--border)]">
             <div className="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
@@ -32,11 +33,11 @@ const Navbar = () => {
                         const isActive = pathName === href || (href !== '/' && pathName.startsWith(href));
 
                         return (
-                            <Link 
-                                key={label} 
+                            <Link
+                                key={label}
                                 href={href}
                                 className={cn(
-                                    'nav-link-base', 
+                                    'nav-link-base',
                                     isActive ? 'nav-link-active' : 'text-[var(--muted-foreground)] hover:bg-[var(--accent)]'
                                 )}
                             >
@@ -44,7 +45,7 @@ const Navbar = () => {
                             </Link>
                         );
                     })}
-                    
+
                     <div className="flex gap-4 items-center ml-4 border-l border-[var(--border)] pl-4">
                         <Show when="signed-out">
                             <SignInButton mode="modal">
@@ -56,6 +57,14 @@ const Navbar = () => {
                         </Show>
                         <Show when="signed-in">
                             <UserButton />
+                            {user?.firstName && (
+                                <Link
+                                    href="/subscriptions"
+                                    className="nav-user-name"
+                                >
+                                    {user.firstName}
+                                </Link>
+                            )}
                         </Show>
                     </div>
                 </nav>
