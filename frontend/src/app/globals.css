@@ -59,7 +59,7 @@
   --font-serif: var(--font-ibm-plex-serif);
 
   /* Core surfaces — Cream (#FFFDD0) parchment scale */
-  --background: #FFFDD0;
+  --background: #F9F6F1;
   /* classic cream paper      */
   --foreground: oklch(0.192 0.025 55);
   /* deep walnut ink         */
@@ -71,8 +71,8 @@
   --popover: #F9F7D9;
   --popover-foreground: oklch(0.192 0.025 55);
 
-  /* Primary — rich chestnut brown (book spine leather) */
-  --primary: oklch(0.360 0.065 52);
+  /* Primary — rich ancient text brown */
+  --primary: #685141;
   --primary-foreground: oklch(0.972 0.018 82);
 
   /* Secondary — warm sand */
@@ -170,13 +170,13 @@
   --ring: oklch(0.720 0.105 75);
 
   /* Chart — warm dark palette */
-  --chart-1: oklch(0.780 0.095 78);
+  --chart-1: rgb(217, 176, 112);
   /* warm amber              */
   --chart-2: oklch(0.650 0.028 68);
   /* taupe                   */
   --chart-3: oklch(0.860 0.075 80);
   /* gold                    */
-  --chart-4: oklch(0.450 0.040 55);
+  --chart-4: #685141;
   /* brown                   */
   --chart-5: oklch(0.320 0.028 50);
   /* dark bark               */
