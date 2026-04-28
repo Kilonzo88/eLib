@@ -3,18 +3,18 @@ import Image from "next/image";
 
 export function LibraryHero() {
     return (
-        <div className="w-full rounded-2xl bg-[oklch(0.924_0.028_78)] px-5 py-6 md:px-8 md:py-7 flex flex-col md:flex-row items-center gap-6 overflow-hidden">
+        <div className="w-full rounded-2xl bg-primary px-5 py-6 md:px-8 md:py-7 flex flex-col md:flex-row items-center gap-6 overflow-hidden shadow-xl border border-primary/20">
 
             {/* Left — heading + CTA */}
             <div className="w-full md:flex-shrink-0 md:w-[240px] text-center md:text-left">
-                <h1 className="library-hero-title text-3xl md:text-4xl font-serif font-bold mb-4">
+                <h1 className="library-hero-title text-3xl md:text-4xl font-serif font-bold mb-4 text-primary-foreground">
                     Your Library
                 </h1>
-                <p className="text-sm text-[oklch(0.510_0.030_62)] leading-relaxed mb-6 mx-auto md:mx-0">
+                <p className="text-sm text-primary-foreground/80 leading-relaxed mb-6 mx-auto md:mx-0">
                     Convert your books into interactive AI conversations.
                     Listen, learn, and discuss your favorite reads.
                 </p>
-                <button className="inline-flex items-center gap-2 rounded-lg border border-[oklch(0.880_0.030_76)] bg-background px-4 py-2 text-sm font-medium text-[oklch(0.192_0.025_55)] hover:bg-secondary transition-colors shadow-[0_0_12px_rgba(255,253,208,0.8)]">
+                <button className="inline-flex items-center gap-2 rounded-lg border border-[oklch(0.880_0.030_76)] bg-background px-4 py-2 text-sm font-medium text-[oklch(0.192_0.025_55)] hover:bg-secondary transition-colors">
                     <span>+</span> Add new book
                 </button>
             </div>
@@ -25,7 +25,7 @@ export function LibraryHero() {
                     src="/assets/hero-illustration.png"
                     alt="Books, globe and lamp illustration"
                     fill
-                    className="object-contain"
+                    className="object-contain drop-shadow-2xl"
                     priority
                 />
             </div>
@@ -39,7 +39,7 @@ export function LibraryHero() {
                 ].map(({ n, title, sub }) => (
                     <div
                         key={n}
-                        className="flex items-start gap-3 rounded-xl bg-background/70 px-4 py-3 shadow-[0_0_12px_rgba(255,253,208,0.8)]"
+                        className="flex items-start gap-3 rounded-xl bg-background px-4 py-3 shadow-md transition-transform hover:scale-[1.02]"
                     >
                         <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-[oklch(0.880_0.030_76)] text-xs font-medium text-[oklch(0.510_0.030_62)]">
                             {n}
