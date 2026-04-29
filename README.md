@@ -9,7 +9,7 @@ The platform allows users to upload static PDFs (such as textbooks) and instantl
 The project is structured as a decoupled monorepo full-stack application, ensuring both an immersive user experience and a highly concurrent, memory-safe backend infrastructure.
 
 ### Frontend
-- **Framework:** Next.js 14+ (App Router)
+- **Framework:** Next.js 16.2.4 (App Router)
 - **UI/UX:** Shadcn UI + Tailwind CSS, employing a "warm literary aesthetic."
 - **Real-Time Voice:** Vapi Web SDK integration to handle audio streaming, dynamic turn-taking, and active "thinking/speaking" UI states.
 - **State Management:** Custom React Hooks to manage call duration matrices, session IDs, and subscription tier restrictions.
