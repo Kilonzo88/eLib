@@ -46,7 +46,7 @@ function Dropzone({
 
   return (
     <div>
-      <label className="block w-full bg-white rounded-xl px-4 py-6 text-center cursor-pointer hover:bg-white/90 transition-colors">
+      <label className="block w-full bg-white rounded-xl px-4 py-6 sm:px-5 sm:py-7 text-center cursor-pointer hover:bg-white/90 transition-colors">
         <div className="flex flex-col items-center justify-center gap-2">
           <Upload className="h-5 w-5 text-[var(--primary)]" />
           <div className="text-[var(--primary)] font-medium text-sm">{title}</div>
@@ -103,7 +103,7 @@ function VoiceCard({
       type="button"
       onClick={onSelect}
       className={cn(
-        "w-full rounded-xl bg-white border px-3 py-3 text-left transition-colors",
+        "w-full rounded-xl bg-white border px-3 py-3 lg:px-4 lg:py-4 text-left transition-colors",
         selected
           ? "border-[var(--primary)]"
           : "border-[rgba(33,42,59,0.12)] hover:border-[rgba(33,42,59,0.22)]"
@@ -246,41 +246,43 @@ const UploadForm = () => {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto">
+    <div className="w-full">
       <p className="text-xs text-[var(--muted-foreground)] mb-3">
         5 of 10 books used (Update)
       </p>
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-5">
-        <div>
-          <div className="text-sm font-medium text-[var(--primary)] mb-2">Book PDF File</div>
-          <Dropzone
-            kind="pdf"
-            title="Click to upload PDF"
-            subtitle="PDF file must be 50MB or less"
-            file={pdfFile}
-            onClear={() => setPdfFile(null)}
-            onPick={onPickPdf}
-            inputRef={pdfInputRef}
-          />
-        </div>
-
-        <div>
-          <div className="text-sm font-medium text-[var(--primary)] mb-2">
-            Cover Image (Optional)
+      <form onSubmit={onSubmit} className="flex flex-col gap-5 sm:gap-6 lg:gap-7">
+        <div className="grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-4">
+          <div>
+            <div className="text-sm font-medium text-[var(--primary)] mb-2">Book PDF File</div>
+            <Dropzone
+              kind="pdf"
+              title="Click to upload PDF"
+              subtitle="PDF file must be 50MB or less"
+              file={pdfFile}
+              onClear={() => setPdfFile(null)}
+              onPick={onPickPdf}
+              inputRef={pdfInputRef}
+            />
           </div>
-          <Dropzone
-            kind="image"
-            title="Click to upload cover image"
-            subtitle="Leave empty to auto-generate from PDF"
-            file={coverImageFile}
-            onClear={() => setCoverImageFile(null)}
-            onPick={onPickCoverImage}
-            inputRef={coverInputRef}
-          />
+
+          <div>
+            <div className="text-sm font-medium text-[var(--primary)] mb-2">
+              Cover Image (Optional)
+            </div>
+            <Dropzone
+              kind="image"
+              title="Click to upload cover image"
+              subtitle="Leave empty to auto-generate from PDF"
+              file={coverImageFile}
+              onClear={() => setCoverImageFile(null)}
+              onPick={onPickCoverImage}
+              inputRef={coverInputRef}
+            />
+          </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 sm:space-y-3">
           <label className="block text-sm font-medium text-[var(--primary)]">
             Title
             <input
@@ -305,35 +307,37 @@ const UploadForm = () => {
         <div className="space-y-3">
           <div className="text-sm font-medium text-[var(--primary)]">Choose Assistant Voice</div>
 
-          <div>
-            <div className="text-[11px] text-[var(--muted-foreground)] font-semibold mb-2">
-              Male Voices
+          <div className="space-y-3">
+            <div>
+              <div className="text-[11px] text-[var(--muted-foreground)] font-semibold mb-2">
+                Male Voices
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {maleVoiceOptions.map((opt) => (
+                  <VoiceCard
+                    key={opt.id}
+                    option={opt}
+                    selected={maleVoice === opt.id}
+                    onSelect={() => setMaleVoice(opt.id)}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              {maleVoiceOptions.map((opt) => (
-                <VoiceCard
-                  key={opt.id}
-                  option={opt}
-                  selected={maleVoice === opt.id}
-                  onSelect={() => setMaleVoice(opt.id)}
-                />
-              ))}
-            </div>
-          </div>
 
-          <div>
-            <div className="text-[11px] text-[var(--muted-foreground)] font-semibold mb-2">
-              Female Voices
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {femaleVoiceOptions.map((opt) => (
-                <VoiceCard
-                  key={opt.id}
-                  option={opt}
-                  selected={femaleVoice === opt.id}
-                  onSelect={() => setFemaleVoice(opt.id)}
-                />
-              ))}
+            <div>
+              <div className="text-[11px] text-[var(--muted-foreground)] font-semibold mb-2">
+                Female Voices
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {femaleVoiceOptions.map((opt) => (
+                  <VoiceCard
+                    key={opt.id}
+                    option={opt}
+                    selected={femaleVoice === opt.id}
+                    onSelect={() => setFemaleVoice(opt.id)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -345,7 +349,7 @@ const UploadForm = () => {
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="w-full h-12 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-[var(--primary-foreground)] text-sm font-semibold shadow-sm"
+          className="w-full h-12 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-[var(--primary-foreground)] text-sm font-semibold shadow-sm sm:max-w-[360px]"
         >
           {isSubmitting ? "Begin Synthesis..." : "Begin Synthesis"}
         </Button>
