@@ -1,137 +1,17 @@
 "use client";
 
 import React, { useMemo, useRef, useState } from "react";
-import { Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-
-type VoiceOption = {
-  id: string;
-  name: string;
-  description: string;
-};
+import Dropzone, { ACCEPTED_IMAGE_TYPES, ACCEPTED_PDF_TYPES } from "@/components/ui/Dropzone";
+import VoiceCard, { VoiceOption } from "@/components/ui/VoiceCard";
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024; // 50MB
-const ACCEPTED_PDF_TYPES = ["application/pdf"];
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 function formatBytes(bytes: number) {
   const mb = bytes / (1024 * 1024);
   if (mb >= 1) return `${mb.toFixed(0)}MB`;
   return `${bytes}B`;
-}
-
-type DropzoneProps = {
-  kind: "pdf" | "image";
-  title: string;
-  subtitle: string;
-  file: File | null;
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  onClear: () => void;
-  onPick: (file: File | null) => void;
-};
-
-function Dropzone({
-  kind,
-  title,
-  subtitle,
-  file,
-  inputRef,
-  onClear,
-  onPick,
-}: DropzoneProps) {
-  const accept =
-    kind === "pdf" ? ACCEPTED_PDF_TYPES.join(",") : ACCEPTED_IMAGE_TYPES.join(",");
-
-  return (
-    <div>
-      <label className="block w-full bg-white rounded-xl px-4 py-6 sm:px-5 sm:py-7 text-center cursor-pointer hover:bg-white/90 transition-colors">
-        <div className="flex flex-col items-center justify-center gap-2">
-          <Upload className="h-5 w-5 text-[var(--primary)]" />
-          <div className="text-[var(--primary)] font-medium text-sm">{title}</div>
-          <div className="text-[10px] text-[var(--muted-foreground)] leading-tight">
-            {subtitle}
-          </div>
-          {file && (
-            <div className="mt-2 text-[10px] text-[var(--muted-foreground)]">
-              Selected: <span className="text-[var(--foreground)]">{file.name}</span>
-            </div>
-          )}
-        </div>
-
-        <input
-          className="hidden"
-          ref={inputRef}
-          type="file"
-          accept={accept}
-          onChange={(e) => {
-            const picked = e.target.files?.[0] ?? null;
-            onPick(picked);
-          }}
-        />
-      </label>
-
-      {file && (
-        <button
-          type="button"
-          onClick={() => {
-            onClear();
-            // Ensure the underlying <input type="file"> can re-pick the same file.
-            if (inputRef.current) inputRef.current.value = "";
-          }}
-          className="mt-2 mx-auto block text-[11px] text-[var(--primary)] underline underline-offset-2"
-        >
-          Remove
-        </button>
-      )}
-    </div>
-  );
-}
-
-function VoiceCard({
-  option,
-  selected,
-  onSelect,
-}: {
-  option: VoiceOption;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn(
-        "w-full rounded-xl bg-white border px-3 py-3 lg:px-4 lg:py-4 text-left transition-colors",
-        selected
-          ? "border-[var(--primary)]"
-          : "border-[rgba(33,42,59,0.12)] hover:border-[rgba(33,42,59,0.22)]"
-      )}
-    >
-      <div className="flex items-start gap-2">
-        <span
-          className={cn(
-            "mt-0.5 h-3.5 w-3.5 rounded-full border inline-flex items-center justify-center",
-            selected
-              ? "border-[var(--primary)] bg-[var(--primary)]"
-              : "border-[rgba(104,81,65,0.25)] bg-transparent"
-          )}
-          aria-hidden="true"
-        >
-          {selected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
-        </span>
-        <div className="min-w-0">
-          <div className="text-[13px] font-medium text-[var(--primary)] leading-tight">
-            {option.name}
-          </div>
-          <div className="text-[10px] text-[var(--muted-foreground)] leading-tight mt-1">
-            {option.description}
-          </div>
-        </div>
-      </div>
-    </button>
-  );
 }
 
 const UploadForm = () => {
