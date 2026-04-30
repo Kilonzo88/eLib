@@ -14,17 +14,17 @@ pub struct Book {
 
     pub slug: String,         // unique, lowercase URL slug
 
-    pub file_url: Option<String>,
-    pub file_blob_key: Option<String>,
+    pub file_url: String,
+    pub file_blob_key: String,
     pub cover_url: Option<String>,
     pub cover_blob_key: Option<String>,
 
-    pub file_size: Option<i64>,
-    pub total_segments: Option<i32>,
+    pub file_size: i64,
+    pub total_segments: i32,
 
     // Timestamps — set manually since MongoDB driver doesn't auto-manage these
-    pub created_at: Option<DateTime>,
-    pub updated_at: Option<DateTime>,
+    pub created_at: DateTime,
+    pub updated_at: DateTime,
 }
 
 /// Payload used when creating a new book (no ID or timestamps yet).
@@ -35,9 +35,9 @@ pub struct CreateBookPayload {
     pub author: String,
     pub persona: Option<String>,
     pub slug: String,
-    pub file_url: Option<String>,
-    pub file_blob_key: Option<String>,
+    pub file_url: String,
+    pub file_blob_key: String,
     pub cover_url: Option<String>,
     pub cover_blob_key: Option<String>,
-    pub file_size: Option<i64>,
+    pub file_size: i64,
 }
