@@ -8,12 +8,12 @@ pub struct VoiceSession {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
 
-    pub clerk_id: String,       // compound-indexed with billing_period_start
+    pub clerk_id: String, // compound-indexed with billing_period_start
     pub book_id: ObjectId,
 
     pub started_at: DateTime,
-    pub ended_at: Option<DateTime>,
-    pub duration_seconds: Option<i32>,
+    pub ended_at: DateTime,
+    pub duration_seconds: i32,
 
     pub billing_period_start: DateTime, // indexed with clerk_id for quota tracking
 }
