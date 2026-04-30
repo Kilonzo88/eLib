@@ -9,7 +9,7 @@ pub struct Book {
 
     pub clerk_id: String, // links to the authenticated Clerk user
     pub title: String,
-    pub author: String,
+    pub author: Option<String>,
     pub persona: Option<String>,
 
     pub slug: String, // unique, lowercase URL slug
