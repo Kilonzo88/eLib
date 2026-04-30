@@ -1,4 +1,4 @@
-use mongodb::bson::{oid::ObjectId};
+use mongodb::bson::{oid::ObjectId, DateTime};
 use serde::{Deserialize, Serialize};
 
 /// Equivalent to book-segment.model.ts — maps to the `book_segments` collection.
