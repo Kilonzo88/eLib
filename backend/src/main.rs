@@ -32,11 +32,11 @@ async fn main() {
     .await
     .expect("Failed to create books.slug index");
 
-    // book_segments: text index on content + fast-lookup indexes
+    // book_segments: compound text index & compound lookups to scope by book_id!
     let segments = database.collection::<mongodb::bson::Document>("book_segments");
     segments.create_index(
         IndexModel::builder()
-            .keys(doc! { "content": "text" })
+            .keys(doc! { "book_id": 1, "content": "text" })
             .build(),
     )
     .await
@@ -44,19 +44,20 @@ async fn main() {
 
     segments.create_index(
         IndexModel::builder()
-            .keys(doc! { "segment_index": 1 })
+            .keys(doc! { "book_id": 1, "segment_index": 1 })
+            .options(IndexOptions::builder().unique(true).build())
             .build(),
     )
     .await
-    .expect("Failed to create book_segments.segment_index index");
+    .expect("Failed to create book_segments segment_index unique index");
 
     segments.create_index(
         IndexModel::builder()
-            .keys(doc! { "page_number": 1 })
+            .keys(doc! { "book_id": 1, "page_number": 1 })
             .build(),
     )
     .await
-    .expect("Failed to create book_segments.page_number index");
+    .expect("Failed to create book_segments page_number index");
 
     // voice_sessions: compound index for billing quota lookups
     let sessions = database.collection::<mongodb::bson::Document>("voice_sessions");
