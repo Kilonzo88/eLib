@@ -21,7 +21,7 @@ async fn main() {
     let database = db::connect().await;
 
     // ── Indexes ──────────────────────────────────────────────────────────────
-    // books: unique compound index on clerk_id and slug
+    // books: unique compound index on clerk_id and slug to prevent user A and user B from having a book name collission
     let books = database.collection::<mongodb::bson::Document>("books");
     books.create_index(
         IndexModel::builder()
@@ -32,16 +32,17 @@ async fn main() {
     .await
     .expect("Failed to create books compound index on clerk_id and slug");
 
-    // book_segments: compound text index & compound lookups to scope by book_id!
+    // book_segments: compound text index & compound lookups to scope by book_id!. Builds a map of every scanned word in the book.
     let segments = database.collection::<mongodb::bson::Document>("book_segments");
     segments.create_index(
         IndexModel::builder()
-            .keys(doc! { "book_id": 1, "content": "text" })
+            .keys(doc! { "content": "text" })
             .build(),
     )
     .await
     .expect("Failed to create book_segments text index");
 
+    // book_segments: compound unique index on book_id and segment_index to prevent duplicate segments. Also used to keep segments in order.
     segments.create_index(
         IndexModel::builder()
             .keys(doc! { "book_id": 1, "segment_index": 1 })
@@ -51,6 +52,7 @@ async fn main() {
     .await
     .expect("Failed to create book_segments segment_index unique index");
 
+    // book_segments: compound index on book_id and page_number to scope by book_id and page_number
     segments.create_index(
         IndexModel::builder()
             .keys(doc! { "book_id": 1, "page_number": 1 })
@@ -77,7 +79,7 @@ async fn main() {
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50MB
         .route("/", get(|| async { "eLib Backend Running!" }));
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8081));
     println!("Listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
