@@ -52,7 +52,7 @@ const UploadForm = () => {
   );
 
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
+  const [coverPreviewB64, setCoverPreviewB64] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [authorName, setAuthorName] = useState("");
@@ -65,12 +65,12 @@ const UploadForm = () => {
   const [formError, setFormError] = useState<string | null>(null);
 
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
-  const coverInputRef = useRef<HTMLInputElement | null>(null);
 
-  const onPickPdf = (file: File | null) => {
+  const onPickPdf = async (file: File | null) => {
     setFormError(null);
     if (!file) {
       setPdfFile(null);
+      setCoverPreviewB64(null);
       return;
     }
 
@@ -85,21 +85,43 @@ const UploadForm = () => {
     }
 
     setPdfFile(file);
-  };
+    setCoverPreviewB64(null);
+    setAuthorName("");
 
-  const onPickCoverImage = (file: File | null) => {
-    setFormError(null);
-    if (!file) {
-      setCoverImageFile(null);
-      return;
+    // Call our metadata extraction endpoint
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      const res = await fetch("/api/books/extract-metadata", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        
+        // Auto-fill Title (fallback to filename)
+        if (data.title && data.title.trim() !== "") {
+          setTitle(data.title.trim());
+        } else {
+          const cleanName = file.name.replace(/\.pdf$/i, "").replace(/[-_]/g, " ");
+          setTitle(cleanName);
+        }
+
+        // Display base64 preview if available
+        if (data.cover_b64) {
+          setCoverPreviewB64(data.cover_b64);
+        }
+      } else {
+        const cleanName = file.name.replace(/\.pdf$/i, "").replace(/[-_]/g, " ");
+        setTitle(cleanName);
+      }
+    } catch (e) {
+      console.error("Failed to extract metadata", e);
+      const cleanName = file.name.replace(/\.pdf$/i, "").replace(/[-_]/g, " ");
+      setTitle(cleanName);
     }
-
-    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-      setFormError("Please upload a supported cover image (jpg/png/webp).");
-      return;
-    }
-
-    setCoverImageFile(file);
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -122,7 +144,6 @@ const UploadForm = () => {
       // Keeping it UI-only for now so the page renders immediately.
       console.log("Begin Synthesis", {
         pdfFile,
-        coverImageFile,
         title,
         authorName,
         maleVoice,
@@ -141,7 +162,7 @@ const UploadForm = () => {
       </p>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-5 sm:gap-6 lg:gap-7">
-        <div className="grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <div className="text-sm font-medium text-[var(--primary)] mb-2">Book PDF File</div>
             <Dropzone
@@ -149,24 +170,13 @@ const UploadForm = () => {
               title="Click to upload PDF"
               subtitle="PDF file must be 50MB or less"
               file={pdfFile}
-              onClear={() => setPdfFile(null)}
+              onClear={() => {
+                setPdfFile(null);
+                setCoverPreviewB64(null);
+              }}
               onPick={onPickPdf}
               inputRef={pdfInputRef}
-            />
-          </div>
-
-          <div>
-            <div className="text-sm font-medium text-[var(--primary)] mb-2">
-              Cover Image (Optional)
-            </div>
-            <Dropzone
-              kind="image"
-              title="Click to upload cover image"
-              subtitle="Leave empty to auto-generate from PDF"
-              file={coverImageFile}
-              onClear={() => setCoverImageFile(null)}
-              onPick={onPickCoverImage}
-              inputRef={coverInputRef}
+              previewB64={coverPreviewB64}
             />
           </div>
         </div>
