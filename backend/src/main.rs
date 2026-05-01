@@ -4,7 +4,7 @@ pub mod routes;
 pub mod services;
 pub mod middleware;
 
-use axum::{routing::get, Router};
+use axum::{routing::get, Router, extract::DefaultBodyLimit};
 use mongodb::bson::doc;
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
@@ -74,6 +74,7 @@ async fn main() {
     // ── Router ────────────────────────────────────────────────────────────────
     let app = Router::new()
         .nest("/api", routes::create_router(database.clone()))
+        .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50MB
         .route("/", get(|| async { "eLib Backend Running!" }));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
