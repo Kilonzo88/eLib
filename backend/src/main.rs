@@ -21,16 +21,16 @@ async fn main() {
     let database = db::connect().await;
 
     // ── Indexes ──────────────────────────────────────────────────────────────
-    // books: unique index on slug
+    // books: unique compound index on clerk_id and slug
     let books = database.collection::<mongodb::bson::Document>("books");
     books.create_index(
         IndexModel::builder()
-            .keys(doc! { "slug": 1 })
+            .keys(doc! { "clerk_id": 1, "slug": 1 })
             .options(IndexOptions::builder().unique(true).build())
             .build(),
     )
     .await
-    .expect("Failed to create books.slug index");
+    .expect("Failed to create books compound index on clerk_id and slug");
 
     // book_segments: compound text index & compound lookups to scope by book_id!
     let segments = database.collection::<mongodb::bson::Document>("book_segments");
