@@ -12,6 +12,7 @@ type DropzoneProps = {
   subtitle: string;
   file: File | null;
   inputRef: React.RefObject<HTMLInputElement | null>;
+  previewB64?: string | null;
   onClear: () => void;
   onPick: (file: File | null) => void;
 };
@@ -22,6 +23,7 @@ export default function Dropzone({
   subtitle,
   file,
   inputRef,
+  previewB64,
   onClear,
   onPick,
 }: DropzoneProps) {
@@ -38,8 +40,15 @@ export default function Dropzone({
             {subtitle}
           </div>
           {file && (
-            <div className="mt-2 text-[10px] text-[var(--muted-foreground)]">
-              Selected: <span className="text-[var(--foreground)]">{file.name}</span>
+            <div className="mt-2 text-[10px] text-[var(--muted-foreground)] flex items-center justify-center gap-2 text-left">
+              {previewB64 && (
+                <img 
+                  src={`data:image/png;base64,${previewB64}`} 
+                  alt="Cover preview" 
+                  className="h-12 w-auto object-cover rounded shadow-sm border border-[rgba(33,42,59,0.12)]" 
+                />
+              )}
+              <span>Selected: <span className="text-[var(--foreground)] mt-1 block">{file.name}</span></span>
             </div>
           )}
         </div>
