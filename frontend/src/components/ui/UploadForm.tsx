@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useState } from "react";
+import { useAuth, useClerk } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import Dropzone, { ACCEPTED_IMAGE_TYPES, ACCEPTED_PDF_TYPES } from "@/components/ui/Dropzone";
@@ -15,6 +16,9 @@ function formatBytes(bytes: number) {
 }
 
 const UploadForm = () => {
+  const { userId } = useAuth();
+  const clerk = useClerk();
+
   const maleVoiceOptions: VoiceOption[] = useMemo(
     () => [
       {
@@ -101,6 +105,11 @@ const UploadForm = () => {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+
+    if (!userId) {
+      clerk.openSignIn();
+      return;
+    }
 
     if (!pdfFile) {
       setFormError("Please upload a PDF first.");
