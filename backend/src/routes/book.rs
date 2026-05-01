@@ -51,7 +51,14 @@ pub async fn create_book(
     }
 
     // 2. High-assurance processing
-    let slug = book_service::generate_slug(&title);
+    let base_slug = book_service::generate_slug(&title);
+    let slug = match book_service::make_slug_unique_for_user(&db, &clerk_id, &base_slug).await {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Error generating unique slug: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Error generating unique slug").into_response();
+        }
+    };
     
     // Placeholder for storage (Vercel Blob)
     // (TODO) Implement actual storage upload in storage_service.rs
