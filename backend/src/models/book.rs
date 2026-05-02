@@ -15,9 +15,9 @@ pub struct Book {
     pub slug: String, // unique, lowercase URL slug
 
     pub file_url: String,
-    pub file_blob_key: String,
+    pub storage_key: String,
     pub cover_url: Option<String>,
-    pub cover_blob_key: Option<String>,
+    pub cover_key: Option<String>,
 
     pub file_size: i64,
     pub total_segments: i32,
