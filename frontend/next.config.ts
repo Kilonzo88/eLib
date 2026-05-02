@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "covers.openlibrary.org",
+      },
+      {
+        protocol: "https",
+        hostname: "pub-bd2543eb18f8428bb372cd8d7705cdac.r2.dev",
       }
     ]
   },
@@ -14,7 +18,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://127.0.0.1:8080/api/:path*",
+        destination: "http://127.0.0.1:8081/api/:path*",
       },
     ];
   },
