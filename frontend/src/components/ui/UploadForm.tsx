@@ -16,7 +16,7 @@ function formatBytes(bytes: number) {
 }
 
 const UploadForm = () => {
-  const { userId } = useAuth();
+  const { userId, getToken } = useAuth();
   const clerk = useClerk();
 
   const maleVoiceOptions: VoiceOption[] = useMemo(
@@ -93,8 +93,12 @@ const UploadForm = () => {
       const formData = new FormData();
       formData.append("file", file);
       
+      const token = await getToken();
       const res = await fetch("/api/books/extract-metadata", {
         method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
         body: formData,
       });
 
@@ -140,16 +144,34 @@ const UploadForm = () => {
 
     setIsSubmitting(true);
     try {
-      // TODO: wire to your backend/API.
-      // Keeping it UI-only for now so the page renders immediately.
-      console.log("Begin Synthesis", {
-        pdfFile,
-        title,
-        authorName,
-        maleVoice,
-        femaleVoice,
+      const token = await getToken();
+      
+      const formData = new FormData();
+      formData.append("file", pdfFile);
+      formData.append("title", title || pdfFile.name);
+      if (authorName) formData.append("author", authorName);
+      formData.append("persona", `${maleVoice},${femaleVoice}`);
+
+      const res = await fetch("/api/books", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        body: formData,
       });
-      await new Promise((r) => setTimeout(r, 600));
+
+      if (!res.ok) {
+        let errText = "Failed to upload book";
+        try {
+          errText = await res.text();
+        } catch (_) {}
+        throw new Error(errText);
+      }
+
+      alert("Upload Successful! Backend is processing the book.");
+    } catch (e: any) {
+      console.error(e);
+      setFormError(e.message || "An error occurred during submission.");
     } finally {
       setIsSubmitting(false);
     }
