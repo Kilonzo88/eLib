@@ -60,10 +60,9 @@ pub async fn create_book(
         }
     };
     
-    // Placeholder for storage (Vercel Blob)
-    // (TODO) Implement actual storage upload in storage_service.rs
-    let file_url = format!("https://placeholder.com/{}.pdf", slug);
-    let file_blob_key = format!("blob_{}", slug);
+    // Initial storage metadata (will be populated with actual R2 data by the background worker)
+    let file_url = String::new();
+    let storage_key = String::new();
 
     let mut book = Book {
         id: Some(mongodb::bson::oid::ObjectId::new()), // Pre-generate ID for high-assurance tracking
@@ -73,9 +72,9 @@ pub async fn create_book(
         persona,
         slug: slug.clone(),
         file_url,
-        file_blob_key,
+        storage_key,
         cover_url: None,
-        cover_blob_key: None,
+        cover_key: None,
         file_size: pdf_data.len() as i64,
         total_segments: 0,
         created_at: DateTime::now(),
@@ -110,31 +109,40 @@ pub async fn create_book(
 
         match extraction_result {
             Ok(text) => {
-                let chunks = book_service::chunk_text(&text, 500, 50);
+                let chunk_size = std::env::var("BOOK_CHUNK_SIZE").unwrap_or("500".into()).parse().unwrap_or(500);
+                let chunk_overlap = std::env::var("BOOK_CHUNK_OVERLAP").unwrap_or("50".into()).parse().unwrap_or(50);
+
+                let chunks = book_service::chunk_text(&text, chunk_size, chunk_overlap);
                 let total_segments = chunks.len() as i32;
                 book.total_segments = total_segments;
 
-                // 3. Upload to Cloud (Vercel Blob)
-                // Upload PDF
-                let pdf_filename = format!("books/{}.pdf", slug);
-                match crate::services::storage_service::upload_to_blob(&pdf_filename, pdf_data).await {
-                    Ok(pdf_blob) => {
-                        book.file_url = pdf_blob.url;
-                        book.file_blob_key = pdf_blob.pathname;
+                // Upload PDF to Cloudflare R2
+                let pdf_filename = format!("{}.pdf", slug);
+                match crate::services::storage_service::upload_pdf_to_r2(&pdf_data, &pdf_filename).await {
+                    Ok(pdf_url) => {
+                        println!("Successfully uploaded PDF to R2: {}", pdf_url);
+                        book.file_url = pdf_url;
+                        book.storage_key = pdf_filename.clone();
                     },
                     Err(e) => {
-                        eprintln!("Failed to upload PDF to blob for {}: {}", slug, e);
+                        eprintln!("Failed to upload PDF to R2 for {}: {:?}", slug, e);
                         return;
                     }
                 }
 
-                // Upload Cover (if generated)
+                // Upload Cover to R2 (if generated)
                 if cover_result.is_ok() {
-                    let cover_filename = format!("covers/{}.png", slug);
+                    let cover_filename = format!("{}-cover.png", slug);
                     if let Ok(cover_data) = std::fs::read(&png_path) {
-                        if let Ok(cover_blob) = crate::services::storage_service::upload_to_blob(&cover_filename, cover_data).await {
-                            book.cover_url = Some(cover_blob.url);
-                            book.cover_blob_key = Some(cover_blob.pathname);
+                        match crate::services::storage_service::upload_image_to_r2(&cover_data, &cover_filename).await {
+                            Ok(cover_url) => {
+                                println!("Successfully uploaded cover image to R2: {}", cover_url);
+                                book.cover_url = Some(cover_url);
+                                book.cover_key = Some(cover_filename);
+                            },
+                            Err(e) => {
+                                eprintln!("Failed to upload cover to R2 for {}: {:?}", slug, e);
+                            }
                         }
                     }
                 }
@@ -165,4 +173,55 @@ pub async fn create_book(
     });
 
     (StatusCode::CREATED, Json(book_for_response)).into_response()
+}
+
+#[derive(serde::Serialize)]
+pub struct MetadataResponse {
+    pub title: Option<String>,
+    pub author: Option<String>,
+    pub cover_b64: Option<String>,
+}
+
+pub async fn extract_metadata(
+    State(_db): State<Database>,
+    _user: crate::middleware::auth::AuthenticatedUser,
+    mut multipart: Multipart,
+) -> impl IntoResponse {
+    let mut pdf_data = Vec::new();
+
+    while let Ok(Some(field)) = multipart.next_field().await {
+        if field.name() == Some("file") {
+            pdf_data = field.bytes().await.unwrap_or_default().to_vec();
+        }
+    }
+
+    if pdf_data.is_empty() {
+        return (StatusCode::BAD_REQUEST, "Missing PDF file").into_response();
+    }
+
+    // Process metadata
+    let metadata_res = pdf_service::extract_metadata(&pdf_data);
+    
+    // Process cover preview
+    let mut cover_b64 = None;
+    let temp_dir = tempfile::tempdir().ok();
+    if let Some(dir) = temp_dir {
+        let pdf_path = dir.path().join("input.pdf");
+        if std::fs::write(&pdf_path, &pdf_data).is_ok() {
+            if let Ok(b64) = crate::services::image_service::generate_base64_cover(&pdf_path) {
+                cover_b64 = Some(b64);
+            }
+        }
+    }
+
+    let (title, author) = match metadata_res {
+        Ok(m) => (m.title, m.author),
+        Err(_) => (None, None),
+    };
+
+    (StatusCode::OK, Json(MetadataResponse {
+        title,
+        author,
+        cover_b64,
+    })).into_response()
 }
