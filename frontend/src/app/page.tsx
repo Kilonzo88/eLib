@@ -8,7 +8,7 @@ const Page = () => {
     <div className="flex flex-col gap-12">
       <LibraryHero />
 
-      <section className="max-w-7xl mx-auto px-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-16">
+      <section className="max-w-7xl mx-auto px-4 grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 gap-4 pb-16">
         {sampleBooks.map((book) => (
           <BookCard
             key={book._id}
