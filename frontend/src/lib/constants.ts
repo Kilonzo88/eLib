@@ -149,7 +149,11 @@ export const sampleBooks = [
 //     fillerInjectionEnabled: false,
 // };
 
-// // Clerk appearance overrides - Warm Literary Style
+// // Gutenberg API Configuration
+export const GUTENBERG_CACHE_TIME = 3600; // 1 hour
+export const GUTENBERG_BOOK_LIMIT = 32;
+
+// Clerk appearance overrides - Warm Literary Style
 // // Note: Tailwind requires static class names at build time, so we hardcode color values here
 // export const CLERK_AUTH_APPEARANCE_OVERRIDE = {
 //     rootBox: 'mx-auto',
