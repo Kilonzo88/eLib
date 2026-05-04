@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "pub-bd2543eb18f8428bb372cd8d7705cdac.r2.dev",
+      },
+      {
+        protocol: "https",
+        hostname: "www.gutenberg.org",
       }
     ]
   },
