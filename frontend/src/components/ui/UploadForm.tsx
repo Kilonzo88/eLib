@@ -4,10 +4,11 @@ import React, { useMemo, useRef, useState } from "react";
 import { useAuth, useClerk } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
-import Dropzone, { ACCEPTED_IMAGE_TYPES, ACCEPTED_PDF_TYPES } from "@/components/ui/Dropzone";
+import Dropzone, { ACCEPTED_IMAGE_TYPES, ACCEPTED_BOOK_TYPES } from "@/components/ui/Dropzone";
 import VoiceCard, { VoiceOption } from "@/components/ui/VoiceCard";
+import { getBackendUrl } from "@/lib/utils";
 
-const MAX_PDF_BYTES = 50 * 1024 * 1024; // 50MB
+const MAX_BOOK_BYTES = 50 * 1024 * 1024; // 50MB
 
 function formatBytes(bytes: number) {
   const mb = bytes / (1024 * 1024);
@@ -51,7 +52,7 @@ const UploadForm = () => {
     []
   );
 
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [bookFile, setBookFile] = useState<File | null>(null);
   const [coverPreviewB64, setCoverPreviewB64] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
@@ -64,27 +65,27 @@ const UploadForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const pdfInputRef = useRef<HTMLInputElement | null>(null);
+  const bookInputRef = useRef<HTMLInputElement | null>(null);
 
-  const onPickPdf = async (file: File | null) => {
+  const onPickBook = async (file: File | null) => {
     setFormError(null);
     if (!file) {
-      setPdfFile(null);
+      setBookFile(null);
       setCoverPreviewB64(null);
       return;
     }
 
-    if (!ACCEPTED_PDF_TYPES.includes(file.type)) {
-      setFormError("Please upload a PDF file.");
+    if (!ACCEPTED_BOOK_TYPES.includes(file.type)) {
+      setFormError("Please upload a PDF or EPUB file.");
       return;
     }
 
-    if (file.size > MAX_PDF_BYTES) {
-      setFormError(`PDF file must be 50MB or less (selected: ${formatBytes(file.size)}).`);
+    if (file.size > MAX_BOOK_BYTES) {
+      setFormError(`File must be 50MB or less (selected: ${formatBytes(file.size)}).`);
       return;
     }
 
-    setPdfFile(file);
+    setBookFile(file);
     setCoverPreviewB64(null);
     setAuthorName("");
 
@@ -94,7 +95,7 @@ const UploadForm = () => {
       formData.append("file", file);
       
       const token = await getToken();
-      const res = await fetch("/api/books/extract-metadata", {
+      const res = await fetch(`${getBackendUrl()}/api/books/extract-metadata`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -109,8 +110,12 @@ const UploadForm = () => {
         if (data.title && data.title.trim() !== "") {
           setTitle(data.title.trim());
         } else {
-          const cleanName = file.name.replace(/\.pdf$/i, "").replace(/[-_]/g, " ");
+          const cleanName = file.name.replace(/\.(pdf|epub)$/i, "").replace(/[-_]/g, " ");
           setTitle(cleanName);
+        }
+
+        if (data.author && data.author.trim() !== "") {
+          setAuthorName(data.author.trim());
         }
 
         // Display base64 preview if available
@@ -118,12 +123,12 @@ const UploadForm = () => {
           setCoverPreviewB64(data.cover_b64);
         }
       } else {
-        const cleanName = file.name.replace(/\.pdf$/i, "").replace(/[-_]/g, " ");
+        const cleanName = file.name.replace(/\.(pdf|epub)$/i, "").replace(/[-_]/g, " ");
         setTitle(cleanName);
       }
     } catch (e) {
       console.error("Failed to extract metadata", e);
-      const cleanName = file.name.replace(/\.pdf$/i, "").replace(/[-_]/g, " ");
+      const cleanName = file.name.replace(/\.(pdf|epub)$/i, "").replace(/[-_]/g, " ");
       setTitle(cleanName);
     }
   };
@@ -137,8 +142,8 @@ const UploadForm = () => {
       return;
     }
 
-    if (!pdfFile) {
-      setFormError("Please upload a PDF first.");
+    if (!bookFile) {
+      setFormError("Please upload a book first.");
       return;
     }
 
@@ -147,12 +152,12 @@ const UploadForm = () => {
       const token = await getToken();
       
       const formData = new FormData();
-      formData.append("file", pdfFile);
-      formData.append("title", title || pdfFile.name);
+      formData.append("file", bookFile);
+      formData.append("title", title || bookFile.name);
       if (authorName) formData.append("author", authorName);
       formData.append("persona", `${maleVoice},${femaleVoice}`);
 
-      const res = await fetch("/api/books", {
+      const res = await fetch(`${getBackendUrl()}/api/books`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -186,18 +191,18 @@ const UploadForm = () => {
       <form onSubmit={onSubmit} className="flex flex-col gap-5 sm:gap-6 lg:gap-7">
         <div className="grid grid-cols-1 gap-4">
           <div>
-            <div className="text-sm font-medium text-[var(--primary)] mb-2">Book PDF File</div>
+            <div className="text-sm font-medium text-[var(--primary)] mb-2">Book File (PDF or EPUB)</div>
             <Dropzone
               kind="pdf"
-              title="Click to upload PDF"
-              subtitle="PDF file must be 50MB or less"
-              file={pdfFile}
+              title="Click to upload Ebook"
+              subtitle="PDF or EPUB file must be 50MB or less"
+              file={bookFile}
               onClear={() => {
-                setPdfFile(null);
+                setBookFile(null);
                 setCoverPreviewB64(null);
               }}
-              onPick={onPickPdf}
-              inputRef={pdfInputRef}
+              onPick={onPickBook}
+              inputRef={bookInputRef}
               previewB64={coverPreviewB64}
             />
           </div>
