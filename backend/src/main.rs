@@ -9,6 +9,7 @@ use mongodb::bson::doc;
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
 use std::net::SocketAddr;
+use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
 async fn main() {
@@ -19,6 +20,17 @@ async fn main() {
 
     // Establish MongoDB connection (pooled natively by the driver)
     let database = db::connect().await;
+
+    // Verify Cloudflare R2 Connectivity
+    match services::storage_service::validate_config().await {
+        Ok(_) => println!("Successfully connected to Cloudflare R2!"),
+        Err(e) => {
+            eprintln!("Warning: Failed to connect to Cloudflare R2: {:?}", e);
+            eprintln!("Check your R2_ACCOUNT_ID, ACCESS_KEY, and SECRET_KEY in .env");
+            // We don't panic here to allow local dev without R2 if needed, 
+            // but we could .expect() if it's strictly required.
+        }
+    }
 
     // ── Indexes ──────────────────────────────────────────────────────────────
     // books: unique compound index on clerk_id and slug to prevent user A and user B from having a book name collission
@@ -73,10 +85,16 @@ async fn main() {
 
     println!("All indexes ensured.");
 
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     // ── Router ────────────────────────────────────────────────────────────────
     let app = Router::new()
         .nest("/api", routes::create_router(database.clone()))
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50MB
+        .layer(cors)
         .route("/", get(|| async { "eLib Backend Running!" }));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8081));
