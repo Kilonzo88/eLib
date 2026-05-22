@@ -13,8 +13,8 @@ pub fn generate_cover_from_pdf(pdf_path: &Path, output_png_path: &Path) -> Resul
         .arg("1")
         .arg("-l")
         .arg("1")
+        .arg("-singlefile")
         .arg("-png")
-        // some versions use -singlefile, but we'll just let it generate fallback names
         .arg(pdf_path)
         .arg(&prefix)
         .status()?;
@@ -23,32 +23,17 @@ pub fn generate_cover_from_pdf(pdf_path: &Path, output_png_path: &Path) -> Resul
         return Err(anyhow!("pdftoppm failed with status: {}", status));
     }
 
-    // Try multiple possible output names
-    let possible_outputs = [
-        temp_dir.path().join("cover.png"),      // if -singlefile
-        temp_dir.path().join("cover-1.png"),    // typical without -singlefile
-        temp_dir.path().join("cover-01.png"),
-        temp_dir.path().join("cover-001.png"),
-    ];
-
-    let mut found = false;
-    for po in &possible_outputs {
-        if po.exists() {
-            std::fs::rename(po, output_png_path)?;
-            found = true;
-            break;
-        }
+    let output_file = temp_dir.path().join("cover.png");
+    if output_file.exists() {
+        std::fs::rename(output_file, output_png_path)?;
+        Ok(())
+    } else {
+        Err(anyhow!("pdftoppm did not produce the expected cover.png file"))
     }
-
-    if !found {
-        return Err(anyhow!("pdftoppm did not produce any expected output files"));
-    }
-
-    Ok(())
 }
 
 pub fn generate_base64_cover(pdf_path: &Path) -> Result<String> {
-    let mut temp_png = tempfile::NamedTempFile::new()?;
+    let temp_png = tempfile::NamedTempFile::new()?;
     let png_path = temp_png.path();
     
     // Use our existing function to generate the file
