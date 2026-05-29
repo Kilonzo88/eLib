@@ -6,21 +6,29 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Show, SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs"
 
-const navItems = [
-    { label: "Library", href: "/" },
-    { label: "Add New", href: "/books/new" },
-]
-
 const Navbar = () => {
     const pathName = usePathname();
-    const { user } = useUser(); // Destructure the user object
+    const { user, isSignedIn } = useUser();
+
+    // Static nav items — Library label changes based on auth state
+    const navItems = [
+        { label: isSignedIn ? 'My Library' : 'Your Library', href: '/' },
+        { label: 'Add New', href: '/books/new' },
+    ];
+
+    // Hide navbar on mobile when reading a book to maximize space
+    const isBookReader = pathName.startsWith('/books/');
+
     return (
-        <header className="w-full fixed top-0 left-0 z-50 bg-[var(--background)] border-b border-[var(--border)]">
+        <header className={cn(
+            "w-full fixed top-0 left-0 z-50 bg-[var(--background)] border-b border-[var(--border)]",
+            isBookReader && "hidden md:block" // Hide completely on mobile for reader pages
+        )}>
             <div className="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
                 <Link href="/" className="flex items-center">
                     <Image
                         src="/assets/logo.png"
-                        alt="eLib" //Google and other search engines are much "happier" when they see a brand name in actual text format inside the header. It helps your site rank higher for the keyword "eLib" than just having an image would
+                        alt="eLib"
                         width={42}
                         height={26}
                         priority
@@ -34,7 +42,7 @@ const Navbar = () => {
 
                         return (
                             <Link
-                                key={label}
+                                key={href}
                                 href={href}
                                 className={cn(
                                     'nav-link-base',
@@ -58,12 +66,9 @@ const Navbar = () => {
                         <Show when="signed-in">
                             <UserButton />
                             {user?.firstName && (
-                                <Link
-                                    href="/subscriptions"
-                                    className="nav-user-name"
-                                >
+                                <span className="nav-user-name cursor-default select-none">
                                     {user.firstName}
-                                </Link>
+                                </span>
                             )}
                         </Show>
                     </div>

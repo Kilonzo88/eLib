@@ -19,10 +19,6 @@ const GUTENBERG_LIMIT = 32;
 export default async function Page() {
     const { userId } = await auth();
 
-    // Redirect signed-out users
-    if (!userId) {
-        redirect('/books/new');
-    }
 
     // SSR fetch the Gutenberg catalogue internally from backend
     let gutenbergBooks: GutenbergBook[] = [];
@@ -39,7 +35,7 @@ export default async function Page() {
                     title: b.title,
                     author: b.author || 'Unknown Author',
                     slug: b.slug,
-                    coverURL: b.cover_url || 'https://covers.openlibrary.org/b/id/1-L.jpg',
+                    coverURL: b.cover_url || 'https://placehold.co/400x600?text=No+Cover',
                 }));
             }
         }

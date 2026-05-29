@@ -59,3 +59,30 @@ where
         })
     }
 }
+
+pub struct OptionalUser {
+    pub user_id: Option<String>,
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for OptionalUser
+where
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, String);
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        // Try to get AuthenticatedUser, but return None if it fails (missing or invalid token)
+        println!("[OptionalUser] Extracting user...");
+        match AuthenticatedUser::from_request_parts(parts, state).await {
+            Ok(user) => {
+                println!("[OptionalUser] Found user: {}", user.user_id);
+                Ok(OptionalUser { user_id: Some(user.user_id) })
+            },
+            Err(_) => {
+                println!("[OptionalUser] No user found (using guest)");
+                Ok(OptionalUser { user_id: None })
+            },
+        }
+    }
+}

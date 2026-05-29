@@ -3,13 +3,17 @@ name = "backend"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "seed"
+path = "src/bin/seed.rs"
+
 [dependencies]
 axum = { version = "0.7", features = ["macros", "multipart", "json"] }
 tokio = { version = "1.37", features = ["full"] }
 mongodb = { version = "3.6", features = ["sync"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "gzip", "brotli"] }
 jsonwebtoken = "9.3"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors"] }
@@ -25,3 +29,7 @@ uuid = { version = "1.23.1", features = ["v4"] }
 base64 = "0.22.1"
 epub = "2.1.5"
 html2text = "0.17.1"
+async-stream = "0.3"
+futures-util = "0.3"
+lol_html = "2"
+bytes = "1"

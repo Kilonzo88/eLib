@@ -11,7 +11,7 @@ use backend::services::gutenberg_service::{
     build_gutenberg_client, chunk_chapter, extract_chapters_from_epub,
     fetch_epub, GUTENBERG_CATALOGUE,
 };
-use backend::services::storage_service;
+// Removed unused import
 use mongodb::bson::doc;
 use std::time::Duration;
 

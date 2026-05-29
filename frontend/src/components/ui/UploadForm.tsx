@@ -75,7 +75,13 @@ const UploadForm = () => {
       return;
     }
 
-    if (!ACCEPTED_BOOK_TYPES.includes(file.type)) {
+    console.log("[onPickBook] File selected:", file.name, "type:", JSON.stringify(file.type), "size:", file.size);
+
+    // Mobile browsers often report empty MIME types — fall back to extension check
+    const hasValidMime = ACCEPTED_BOOK_TYPES.includes(file.type);
+    const hasValidExt = /\.(pdf|epub)$/i.test(file.name);
+    console.log("[onPickBook] hasValidMime:", hasValidMime, "hasValidExt:", hasValidExt);
+    if (!hasValidMime && !hasValidExt) {
       setFormError("Please upload a PDF or EPUB file.");
       return;
     }
@@ -94,12 +100,15 @@ const UploadForm = () => {
       const formData = new FormData();
       formData.append("file", file);
       
-      const token = await getToken();
-      const res = await fetch(`${getBackendUrl()}/api/books/extract-metadata`, {
+      const token = userId ? await getToken() : null;
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`/api/books/extract-metadata`, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        },
+        headers,
         body: formData,
       });
 
@@ -137,31 +146,44 @@ const UploadForm = () => {
     e.preventDefault();
     setFormError(null);
 
-    if (!userId) {
-      clerk.openSignIn();
-      return;
-    }
-
     if (!bookFile) {
       setFormError("Please upload a book first.");
       return;
     }
 
+    const finalTitle = title || bookFile.name;
+
     setIsSubmitting(true);
     try {
-      const token = await getToken();
+      const token = userId ? await getToken() : null;
       
+      // If signed in, check for duplicate. If guest, we skip this check for simplicity
+      if (token) {
+        const existingRes = await fetch("/api/my-books", {
+          headers: { "Authorization": `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (existingRes.ok) {
+          const existingBooks = await existingRes.json();
+          if (Array.isArray(existingBooks) && existingBooks.some(b => b.title.trim().toLowerCase() === finalTitle.trim().toLowerCase())) {
+            throw new Error("You have already uploaded a book with this title.");
+          }
+        }
+      }
+
       const formData = new FormData();
       formData.append("file", bookFile);
-      formData.append("title", title || bookFile.name);
+      formData.append("title", finalTitle);
       if (authorName) formData.append("author", authorName);
       formData.append("persona", `${maleVoice},${femaleVoice}`);
 
-      const res = await fetch(`${getBackendUrl()}/api/books`, {
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch(`/api/books`, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        },
+        headers,
         body: formData,
       });
 
@@ -173,7 +195,20 @@ const UploadForm = () => {
         throw new Error(errText);
       }
 
-      alert("Upload Successful! Backend is processing the book.");
+      const data = await res.json();
+      const bookId = data._id || data.id;
+
+      if (!userId) {
+        // Guest mode: initiated sync. Now prompt for sign-in and claim later
+        localStorage.setItem("pending_claim_book_id", bookId);
+        clerk.openSignIn({ 
+          afterSignInUrl: window.location.href + (window.location.search ? "&" : "?") + "claim=" + bookId 
+        });
+        return;
+      }
+
+      // alert("Upload Successful! Backend is processing the book.");
+      window.location.href = "/";
     } catch (e: any) {
       console.error(e);
       setFormError(e.message || "An error occurred during submission.");
@@ -181,6 +216,8 @@ const UploadForm = () => {
       setIsSubmitting(false);
     }
   };
+
+
 
   return (
     <div className="w-full">

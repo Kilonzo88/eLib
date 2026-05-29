@@ -79,6 +79,7 @@ export interface BookCardProps {
     author: string;
     coverURL: string;
     slug: string;
+    processingStatus?: string;
 }
 
 export interface Messages {

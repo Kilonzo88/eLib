@@ -27,14 +27,30 @@ async fn main() {
         Err(e) => {
             eprintln!("Warning: Failed to connect to Cloudflare R2: {:?}", e);
             eprintln!("Check your R2_ACCOUNT_ID, ACCESS_KEY, and SECRET_KEY in .env");
-            // We don't panic here to allow local dev without R2 if needed, 
-            // but we could .expect() if it's strictly required.
+        }
+    }
+
+    // Ensure R2 bucket has CORS configured for direct browser access
+    match services::storage_service::ensure_cors_config().await {
+        Ok(_) => println!("R2 CORS check complete."),
+        Err(_) => {
+            // This often fails with AccessDenied if the API key doesn't have "Admin" permissions on the bucket.
+            // It's not a fatal error and doesn't affect uploads.
+            println!("Note: Automatic R2 CORS configuration skipped (requires Admin permissions).");
         }
     }
 
     // ── Indexes ──────────────────────────────────────────────────────────────
     // books: unique compound index on clerk_id and slug to prevent user A and user B from having a book name collission
     let books = database.collection::<mongodb::bson::Document>("books");
+
+    // Drop stale globally-unique slug index if it exists — superseded by the clerk_id+slug compound index
+    // We wrap this in a match to avoid crashing if the index name or collection state varies.
+    match books.drop_index("slug_1").await {
+        Ok(_) => println!("Successfully dropped legacy globabl slug_1 index."),
+        Err(e) => println!("Note: skip dropping 'slug_1' index (may already be gone): {:?}", e),
+    }
+
     books.create_index(
         IndexModel::builder()
             .keys(doc! { "clerk_id": 1, "slug": 1 })

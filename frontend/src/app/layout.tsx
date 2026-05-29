@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Serif, Mona_Sans } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/ui/Navbar";
+import ClaimTracker from "@/components/ui/ClaimTracker";
 import { ClerkProvider } from "@clerk/nextjs";
 
 const ibmPlexSerif = IBM_Plex_Serif({
@@ -33,7 +34,8 @@ export default function RootLayout({
       <body className={`${ibmPlexSerif.variable} ${monaSans.variable} relative font-sans antialiased`}>
         <ClerkProvider>
           <Navbar />
-          <main className="max-w-6xl mx-auto px-8 pt-24 pb-12">
+          <ClaimTracker />
+          <main className="max-w-6xl mx-auto px-4 md:px-8 pt-16 md:pt-24 pb-0 md:pb-12">
             {children}
           </main>
         </ClerkProvider>

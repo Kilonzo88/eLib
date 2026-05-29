@@ -1,22 +1,32 @@
 // components/library-hero.tsx
-import Image from "next/image";
+'use client';
 
-export function LibraryHero() {
+import Image from "next/image";
+import Link from "next/link";
+
+interface LibraryHeroProps {
+    isSignedIn?: boolean;
+}
+
+export function LibraryHero({ isSignedIn = false }: LibraryHeroProps) {
     return (
         <div className="w-full rounded-2xl bg-primary px-5 py-6 md:px-8 md:py-7 flex flex-col md:flex-row items-center gap-6 overflow-hidden shadow-xl border border-primary/20">
 
             {/* Left — heading + CTA */}
             <div className="w-full md:flex-shrink-0 md:w-[240px] text-center md:text-left">
                 <h1 className="library-hero-title text-3xl md:text-4xl font-serif font-bold mb-4 text-primary-foreground">
-                    Your Library
+                    {isSignedIn ? 'My Library' : 'Your Library'}
                 </h1>
                 <p className="text-sm text-primary-foreground/80 leading-relaxed mb-6 mx-auto md:mx-0">
                     Convert your books into interactive AI conversations.
                     Listen, learn, and discuss your favorite reads.
                 </p>
-                <button className="inline-flex items-center gap-2 rounded-lg border border-[oklch(0.880_0.030_76)] bg-background px-4 py-2 text-sm font-medium text-[oklch(0.192_0.025_55)] hover:bg-secondary transition-colors">
+                <Link
+                    href="/books/new"
+                    className="inline-flex items-center gap-2 rounded-lg border border-[oklch(0.880_0.030_76)] bg-background px-4 py-2 text-sm font-medium text-[oklch(0.192_0.025_55)] hover:bg-secondary transition-colors"
+                >
                     <span>+</span> Add new book
-                </button>
+                </Link>
             </div>
 
             {/* Center — illustration */}

@@ -31,6 +31,11 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "50mb",
     },
   },
+  allowedDevOrigins: [
+    "unpurely-extensile-fransisca.ngrok-free.dev",
+    "*.ngrok-free.dev",
+    "*.ngrok-free.app"
+  ],
 };
 
 export default nextConfig;

@@ -270,3 +270,95 @@
     background-color: oklch(0.820 0.090 80 / 15%);
   }
 }
+
+/* ─────────────────────────────────────────────
+   READER — Book content typography
+   Styles HTML rendered inside .html-render-container
+───────────────────────────────────────────── */
+.html-render-container h1,
+.html-render-container h2,
+.html-render-container h3,
+.html-render-container h4,
+.html-render-container h5,
+.html-render-container h6 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 1.8em 0 0.8em;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.html-render-container h1 {
+  font-size: 1.6em;
+  text-align: center;
+  margin-top: 0;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.6em;
+}
+
+.html-render-container h2 {
+  font-size: 1.35em;
+}
+
+.html-render-container h3 {
+  font-size: 1.15em;
+  font-style: italic;
+}
+
+.html-render-container p {
+  margin: 0 0 1.2em;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.html-render-container strong,
+.html-render-container b {
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.html-render-container em,
+.html-render-container i {
+  font-style: italic;
+}
+
+.html-render-container blockquote {
+  border-left: 3px solid var(--border);
+  margin: 1.4em 0;
+  padding: 0.4em 0 0.4em 1.2em;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+.html-render-container ul,
+.html-render-container ol {
+  padding-left: 1.6em;
+  margin: 0 0 1.2em;
+}
+
+.html-render-container li {
+  margin-bottom: 0.4em;
+}
+
+.html-render-container a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.html-render-container sup,
+.html-render-container sub {
+  font-size: 0.75em;
+}
+
+.html-render-container hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2em 0;
+}
+
+/* Chapter wrapper spacing */
+.chapter-content {
+  scroll-margin-top: 1rem;
+}

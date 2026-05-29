@@ -4,7 +4,9 @@ import React from "react";
 import { Upload } from "lucide-react";
 
 export const ACCEPTED_BOOK_TYPES = ["application/pdf", "application/epub+zip"];
+export const ACCEPTED_BOOK_EXTENSIONS = [".pdf", ".epub"];
 export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+export const ACCEPTED_IMAGE_EXTENSIONS = [".jpeg", ".jpg", ".png", ".webp"];
 
 type DropzoneProps = {
   kind: "pdf" | "image";
@@ -27,8 +29,11 @@ export default function Dropzone({
   onClear,
   onPick,
 }: DropzoneProps) {
+  // Include both MIME types AND file extensions for mobile browser compatibility
   const accept =
-    kind === "pdf" ? ACCEPTED_BOOK_TYPES.join(",") : ACCEPTED_IMAGE_TYPES.join(",");
+    kind === "pdf"
+      ? [...ACCEPTED_BOOK_TYPES, ...ACCEPTED_BOOK_EXTENSIONS].join(",")
+      : [...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_IMAGE_EXTENSIONS].join(",");
 
   return (
     <div>
