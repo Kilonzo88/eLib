@@ -2,7 +2,7 @@
 
 **eLib** is a high-assurance, AI-driven learning platform built specifically to support education in emerging economies, with an initial focus on East Africa. 
 
-The platform allows users to upload static PDFs and EPUB files (such as textbooks, novels, and educational materials) and instantly transforms them into interactive, voice-enabled AI mentors. By leveraging real-time voice SDKs and a highly performant backend, students can have intelligent conversational sessions with their study material.
+The platform allows users to upload static PDFs and EPUB files (such as textbooks, novels, and educational materials) and instantly transforms them into interactive, AI mentors. Basically a chat with PDF/ EPUB feature
 
 ## 🏗 System Architecture
 
