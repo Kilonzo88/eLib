@@ -17,6 +17,8 @@ pub struct BookSegment {
     pub page_number: i32,       // indexed — fast jumping to page
     pub word_count: i32,        // used to ensure chunking constraints
     
+    pub embedding: Option<Vec<f32>>, // 768-dimensional vector embedding for vector search
+    
     // Timestamps
     pub created_at: Option<DateTime>,
     pub updated_at: Option<DateTime>,
