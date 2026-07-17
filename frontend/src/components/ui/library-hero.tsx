@@ -10,14 +10,14 @@ interface LibraryHeroProps {
 
 export function LibraryHero({ isSignedIn = false }: LibraryHeroProps) {
     return (
-        <div className="w-full rounded-2xl bg-primary px-5 py-6 md:px-8 md:py-7 flex flex-col md:flex-row items-center gap-6 overflow-hidden shadow-xl border border-primary/20">
+        <div className="w-full rounded-2xl bg-primary px-5 py-4 md:px-8 md:py-7 flex flex-col md:flex-row items-center gap-6 overflow-hidden shadow-xl border border-primary/20">
 
             {/* Left — heading + CTA */}
             <div className="w-full md:flex-shrink-0 md:w-[240px] text-center md:text-left">
-                <h1 className="library-hero-title text-3xl md:text-4xl font-serif font-bold mb-4 text-primary-foreground">
+                <h1 className="library-hero-title text-3xl md:text-4xl font-serif font-bold mb-2 md:mb-4 text-primary-foreground">
                     {isSignedIn ? 'My Library' : 'Your Library'}
                 </h1>
-                <p className="text-sm text-primary-foreground/80 leading-relaxed mb-6 mx-auto md:mx-0">
+                <p className="text-sm text-primary-foreground/80 leading-relaxed mb-4 md:mb-6 mx-auto md:mx-0">
                     Convert your books into interactive AI conversations.
                     Listen, learn, and discuss your favorite reads.
                 </p>
@@ -30,7 +30,7 @@ export function LibraryHero({ isSignedIn = false }: LibraryHeroProps) {
             </div>
 
             {/* Center — illustration */}
-            <div className="w-full max-w-[320px] h-[180px] md:h-[200px] relative flex-shrink-0 mx-auto">
+            <div className="hidden md:block w-full max-w-[320px] h-[180px] md:h-[200px] relative flex-shrink-0 mx-auto">
                 <Image
                     src="/assets/hero-illustration.png"
                     alt="Books, globe and lamp illustration"
@@ -41,7 +41,7 @@ export function LibraryHero({ isSignedIn = false }: LibraryHeroProps) {
             </div>
 
             {/* Right — steps */}
-            <div className="w-full md:flex-shrink-0 md:w-auto flex flex-col gap-3 md:min-w-[180px]">
+            <div className="hidden md:flex w-full md:flex-shrink-0 md:w-auto flex flex-col gap-3 md:min-w-[180px]">
                 {[
                     { n: 1, title: "Upload PDF", sub: "Add your book file" },
                     { n: 2, title: "AI Processing", sub: "We analyze the content" },
