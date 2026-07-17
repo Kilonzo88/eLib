@@ -4,6 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 import { LibraryHero } from '@/components/ui/library-hero';
 import { MyLibrarySection } from '@/components/ui/MyLibrarySection';
 import BookCard from '@/components/ui/BookCard';
+import ScrollIndicator from '@/components/ui/ScrollIndicator';
 import { GUTENBERG_CACHE_TIME } from '@/lib/constants';
 
 interface GutenbergBook {
@@ -46,6 +47,11 @@ export default async function Page() {
     return (
         <div className="flex flex-col gap-12">
             <LibraryHero isSignedIn={!!userId} />
+
+            {/* Mobile-only scroll hint — hidden on md+ */}
+            <div className="md:hidden">
+                <ScrollIndicator hideAfter={60} label="Scroll" />
+            </div>
 
             <MyLibrarySection />
 
