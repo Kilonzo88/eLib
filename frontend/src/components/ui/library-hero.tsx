@@ -18,8 +18,8 @@ export function LibraryHero({ isSignedIn = false }: LibraryHeroProps) {
                     {isSignedIn ? 'My Library' : 'Your Library'}
                 </h1>
                 <p className="text-sm text-primary-foreground/80 leading-relaxed mb-4 md:mb-6 mx-auto md:mx-0">
-                    Convert your books into interactive AI conversations.
-                    Listen, learn, and discuss your favorite reads.
+                    Convert your books into interactive conversations.
+                    Discuss your favorite reads with AI.
                 </p>
                 <Link
                     href="/books/new"
