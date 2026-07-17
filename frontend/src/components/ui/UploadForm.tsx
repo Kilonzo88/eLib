@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useAuth, useClerk } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import Dropzone, { ACCEPTED_IMAGE_TYPES, ACCEPTED_BOOK_TYPES } from "@/components/ui/Dropzone";
-import VoiceCard, { VoiceOption } from "@/components/ui/VoiceCard";
 import { getBackendUrl } from "@/lib/utils";
 
 const MAX_BOOK_BYTES = 50 * 1024 * 1024; // 50MB
@@ -20,47 +19,11 @@ const UploadForm = () => {
   const { userId, getToken } = useAuth();
   const clerk = useClerk();
 
-  const maleVoiceOptions: VoiceOption[] = useMemo(
-    () => [
-      {
-        id: "daniel",
-        name: "Daniel",
-        description: "Middle-aged male, British, authoritative but warm.",
-      },
-      {
-        id: "chris",
-        name: "Chris",
-        description: "Young male, British-Essex, casual & conversational.",
-      },
-    ],
-    []
-  );
-
-  const femaleVoiceOptions: VoiceOption[] = useMemo(
-    () => [
-      {
-        id: "rachel",
-        name: "Rachel",
-        description: "Young female, American, calm & clear.",
-      },
-      {
-        id: "sarah",
-        name: "Sarah",
-        description: "Young female, American, soft & approachable.",
-      },
-    ],
-    []
-  );
-
   const [bookFile, setBookFile] = useState<File | null>(null);
   const [coverPreviewB64, setCoverPreviewB64] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [authorName, setAuthorName] = useState("");
-
-  // Defaults are chosen to match the screenshot.
-  const [maleVoice, setMaleVoice] = useState<string>("chris");
-  const [femaleVoice, setFemaleVoice] = useState<string>("sarah");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -175,7 +138,6 @@ const UploadForm = () => {
       formData.append("file", bookFile);
       formData.append("title", finalTitle);
       if (authorName) formData.append("author", authorName);
-      formData.append("persona", `${maleVoice},${femaleVoice}`);
 
       const headers: Record<string, string> = {};
       if (token) {
@@ -202,7 +164,7 @@ const UploadForm = () => {
         // Guest mode: initiated sync. Now prompt for sign-in and claim later
         localStorage.setItem("pending_claim_book_id", bookId);
         clerk.openSignIn({ 
-          afterSignInUrl: window.location.href + (window.location.search ? "&" : "?") + "claim=" + bookId 
+          forceRedirectUrl: window.location.href + (window.location.search ? "&" : "?") + "claim=" + bookId 
         });
         return;
       }
@@ -267,44 +229,6 @@ const UploadForm = () => {
           </label>
         </div>
 
-        <div className="space-y-3">
-          <div className="text-sm font-medium text-[var(--primary)]">Choose Assistant Voice</div>
-
-          <div className="space-y-3">
-            <div>
-              <div className="text-[11px] text-[var(--muted-foreground)] font-semibold mb-2">
-                Male Voices
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {maleVoiceOptions.map((opt) => (
-                  <VoiceCard
-                    key={opt.id}
-                    option={opt}
-                    selected={maleVoice === opt.id}
-                    onSelect={() => setMaleVoice(opt.id)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-[11px] text-[var(--muted-foreground)] font-semibold mb-2">
-                Female Voices
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {femaleVoiceOptions.map((opt) => (
-                  <VoiceCard
-                    key={opt.id}
-                    option={opt}
-                    selected={femaleVoice === opt.id}
-                    onSelect={() => setFemaleVoice(opt.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
         {formError && (
           <div className="text-[12px] text-[var(--destructive)]">{formError}</div>
         )}
@@ -314,7 +238,7 @@ const UploadForm = () => {
           disabled={isSubmitting}
           className="w-full h-12 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-[var(--primary-foreground)] text-sm font-semibold shadow-sm sm:max-w-[360px]"
         >
-          {isSubmitting ? "Begin Synthesis..." : "Begin Synthesis"}
+          {isSubmitting ? "Uploading Book..." : "Upload Book"}
         </Button>
       </form>
     </div>
