@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
@@ -18,6 +19,11 @@ const Navbar = () => {
 
     // Hide navbar on mobile when reading a book to maximize space
     const isBookReader = pathName.startsWith('/books/');
+
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     return (
         <header className={cn(
@@ -46,7 +52,7 @@ const Navbar = () => {
                                 href={href}
                                 className={cn(
                                     'nav-link-base',
-                                    isActive ? 'nav-link-active' : 'text-[var(--muted-foreground)] hover:bg-[var(--accent)]'
+                                    isMounted && isActive ? 'nav-link-active' : 'text-[var(--muted-foreground)] hover:bg-[var(--accent)]'
                                 )}
                             >
                                 {label}
