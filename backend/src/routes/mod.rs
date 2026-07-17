@@ -2,6 +2,7 @@ use axum::{routing::get, routing::post, Router};
 use mongodb::Database;
 
 pub mod book;
+pub mod chat;
 
 pub fn create_router(db: Database) -> Router {
     Router::new()
@@ -14,5 +15,6 @@ pub fn create_router(db: Database) -> Router {
         .route("/books/:slug/file", get(book::get_book_file))
         .route("/books/claim", post(book::claim_book))
         .route("/books/gutenberg/:id", get(book::fetch_gutenberg_book))
+        .route("/books/:slug/chat", post(chat::chat_with_book))
         .with_state(db)
 }
