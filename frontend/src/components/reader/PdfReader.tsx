@@ -261,7 +261,7 @@ export default function PdfReader({ data, onTextSelect }: PdfReaderProps) {
 
                 if (changed && visiblePagesRef.current.size > 0) {
                     let maxRatio = -1;
-                    let bestPage = currentPage;
+                    let bestPage = -1;
                     visiblePagesRef.current.forEach((ratio, page) => {
                         if (ratio > maxRatio) {
                             maxRatio = ratio;
@@ -284,7 +284,7 @@ export default function PdfReader({ data, onTextSelect }: PdfReaderProps) {
             if (observerRef.current) observerRef.current.disconnect();
             if (pageObserverRef.current) pageObserverRef.current.disconnect();
         };
-    }, [pdfDoc, baseWidth, userScale, renderPage, currentPage]);
+    }, [pdfDoc, baseWidth, userScale, renderPage]);
 
     // Listen for text selection
     useEffect(() => {
