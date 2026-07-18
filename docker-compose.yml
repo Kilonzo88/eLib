@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # Next.js frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_ZHJpdmluZy1ibHVlZ2lsbC0zMC5jbGVyay5hY2NvdW50cy5kZXYk
+        - NEXT_PUBLIC_API_URL=http://127.0.0.1:8081
+    ports:
+      - "3000:3000"
+    environment:
+      - BACKEND_URL=http://backend:8081
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_ZHJpdmluZy1ibHVlZ2lsbC0zMC5jbGVyay5hY2NvdW50cy5kZXYk
+      - CLERK_SECRET_KEY=sk_test_kUMpZxaeKGfSKXUImCOGFTdn53CMWtBtbxqwMocRYC
+      - NEXT_PUBLIC_API_URL=http://127.0.0.1:8081
+
+  # Axum Rust backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./backend/.env
+    # User constraint: Ensure frontend starts first
+    depends_on:
+      frontend:
+        condition: service_started
