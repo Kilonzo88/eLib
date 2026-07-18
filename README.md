@@ -1,6 +1,6 @@
 # eLib: Interactive AI Mentors for Education
 
-**eLib** is a high-assurance, AI-driven learning platform built specifically to support education in emerging economies, with an initial focus on East Africa. 
+**eLib** 
 
 The platform allows users to upload static PDFs and EPUB files (such as textbooks, novels, and educational materials) and instantly transforms them into interactive, AI mentors. Basically a chat with PDF/ EPUB feature
 
@@ -11,7 +11,7 @@ The project is structured as a decoupled monorepo full-stack application, ensuri
 ### Frontend
 - **Framework:** Next.js 16.2.4 (App Router)
 - **UI/UX:** Shadcn UI + Tailwind CSS, employing a "warm literary aesthetic."
-- **Real-Time Voice:** Vapi Web SDK integration to handle audio streaming, dynamic turn-taking, and active "thinking/speaking" UI states.
+- **AI Agent:** gemini 3.5 flash.
 - **State Management:** Custom React Hooks to manage call duration matrices, session IDs, and subscription tier restrictions.
 
 ### Backend 
@@ -54,7 +54,3 @@ pnpm dev
 
 ---
 
-## 📅 Roadmap & Workflows
-1. **Ingestion Flow:** User uploads PDF or EPUB $\rightarrow$ Rust parses/chunks $\rightarrow$ stored in Mongo.
-2. **Session Ignition:** Next.js requests `startVoiceSession` $\rightarrow$ Rust verifies limits $\rightarrow$ Issue Session ID.
-3. **Conversational Phase:** User Speaks $\rightarrow$ Vapi Transcription $\rightarrow$ Hits Rust Search tool $\rightarrow$ Stream Context $\rightarrow$ Vapi AI speaks.
