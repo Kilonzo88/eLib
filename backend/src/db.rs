@@ -13,7 +13,8 @@ pub async fn connect() -> Database {
     client_options.server_api = Some(server_api);
 
     // Equivalent to bufferCommands: false — do not queue commands if not connected
-    client_options.connect_timeout = Some(std::time::Duration::from_secs(5));
+    // Increasing from 5s to 30s to accommodate MongoDB Atlas free tier intermittent connection delays
+    client_options.connect_timeout = Some(std::time::Duration::from_secs(30));
 
     // Get a handle to the cluster
     let client = Client::with_options(client_options)

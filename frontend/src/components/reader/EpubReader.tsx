@@ -23,6 +23,11 @@ export default function EpubReader({ data, onTextSelect }: EpubReaderProps) {
     
     const router = useRouter();
     const overlayTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const onTextSelectRef = useRef(onTextSelect);
+
+    useEffect(() => {
+        onTextSelectRef.current = onTextSelect;
+    }, [onTextSelect]);
 
     const handleTap = useCallback(() => {
         setShowOverlay(prev => {
@@ -66,7 +71,9 @@ export default function EpubReader({ data, onTextSelect }: EpubReaderProps) {
                 book.ready.then(() => {
                     return book.locations.generate(1600); // 1600 chars per page approx
                 }).then((locations) => {
-                    setTotalPages(locations.length);
+                    if (locations && typeof locations.length === 'number') {
+                        setTotalPages(locations.length);
+                    }
                 }).catch(err => console.error("Error generating locations", err));
 
                 rendition.on('relocated', (location: any) => {
@@ -108,8 +115,8 @@ export default function EpubReader({ data, onTextSelect }: EpubReaderProps) {
                 // Text selection handler for AI context
                 rendition.on('selected', (cfiRange: string, contents: { window: Window }) => {
                     const selection = contents.window.getSelection();
-                    if (selection && onTextSelect) {
-                        onTextSelect(selection.toString(), cfiRange);
+                    if (selection && onTextSelectRef.current) {
+                        onTextSelectRef.current(selection.toString(), cfiRange);
                     }
                 });
 
@@ -138,7 +145,7 @@ export default function EpubReader({ data, onTextSelect }: EpubReaderProps) {
                 bookRef.current.destroy();
             }
         };
-    }, [data, onTextSelect]);
+    }, [data]);
 
     if (error) {
         return (

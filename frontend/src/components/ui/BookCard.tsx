@@ -61,9 +61,9 @@ const BookCard = ({ title, author, coverURL, slug, processingStatus }: BookCardP
                                 <div className="absolute left-2 top-0 bottom-0 w-[1px] bg-white/10" />
                                 
                                 <h3 className={`text-white/90 font-serif font-bold leading-tight line-clamp-4 mt-2 ${
-                                    title.length > 40 ? 'text-xs' : 'text-sm'
+                                    (!title || title.length > 40) ? 'text-xs' : 'text-sm'
                                 }`}>
-                                    {title}
+                                    {title || 'Unknown Title'}
                                 </h3>
                                 {author && (
                                     <div className="mt-auto pt-2 border-t border-white/20 w-3/4">

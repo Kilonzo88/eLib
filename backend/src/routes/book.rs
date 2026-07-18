@@ -126,7 +126,7 @@ pub async fn create_book(
         file_size: file_size as i64,
         total_segments: 0,
         gutenberg_id: None,
-        processing_status: Some("ready".to_string()),
+        processing_status: Some("processing".to_string()),
         created_at: DateTime::now(),
         updated_at: DateTime::now(),
     };
@@ -243,9 +243,23 @@ pub async fn create_book(
                 }}
             ).await.map_err(|e| format!("DB Update failed: {}", e))?;
 
+            println!("[create_book] Generating embeddings for segments...");
+            let segment_contents: Vec<String> = chunks.iter().cloned().collect();
+            let embeddings = match crate::services::gemini_service::embed_texts(segment_contents).await {
+                Ok(embs) => {
+                    println!("[create_book] Generated {} embeddings successfully.", embs.len());
+                    Some(embs)
+                }
+                Err(e) => {
+                    eprintln!("[create_book] Failed to generate embeddings: {:?}", e);
+                    None
+                }
+            };
+
             println!("[create_book] Generating segments and chapters...");
             let segments: Vec<BookSegment> = chunks.into_iter().enumerate().map(|(i, content)| {
                 let word_count = content.split_whitespace().count() as i32;
+                let embedding = embeddings.as_ref().and_then(|embs| embs.get(i).cloned());
                 BookSegment {
                     id: None,
                     clerk_id: clerk_id_clone.clone(),
@@ -254,6 +268,7 @@ pub async fn create_book(
                     segment_index: i as i32,
                     page_number: 0,
                     word_count,
+                    embedding,
                     created_at: Some(DateTime::now()),
                     updated_at: Some(DateTime::now()),
                 }
@@ -300,6 +315,13 @@ pub async fn create_book(
                 let chaps_coll = db_clone.collection::<BookChapter>("book_chapters");
                 chaps_coll.insert_many(chapters).await.map_err(|e| format!("Chapters insert failed: {}", e))?;
             }
+
+            // Mark book as ready now that extraction and embedding succeeded
+            let books_coll = db_clone.collection::<Book>("books");
+            books_coll.update_one(
+                doc! { "_id": book_id },
+                doc! { "$set": { "processing_status": "ready" } }
+            ).await.map_err(|e| format!("DB Update ready failed: {}", e))?;
 
             Ok(())
         }.await;
@@ -786,8 +808,22 @@ pub async fn fetch_gutenberg_book(
             ).await.map_err(|e| format!("DB update failed: {}", e))?;
 
             // 8. Insert RAG segments
+            eprintln!("[gutenberg bg] Generating embeddings for Gutenberg segments...");
+            let segment_contents: Vec<String> = chunks.iter().cloned().collect();
+            let embeddings = match crate::services::gemini_service::embed_texts(segment_contents).await {
+                Ok(embs) => {
+                    eprintln!("[gutenberg bg] Generated {} embeddings successfully.", embs.len());
+                    Some(embs)
+                }
+                Err(e) => {
+                    eprintln!("[gutenberg bg] Failed to generate embeddings: {:?}", e);
+                    None
+                }
+            };
+
             let segments: Vec<BookSegment> = chunks.into_iter().enumerate().map(|(i, content)| {
                 let word_count = content.split_whitespace().count() as i32;
+                let embedding = embeddings.as_ref().and_then(|embs| embs.get(i).cloned());
                 BookSegment {
                     id: None,
                     clerk_id: "public".into(),
@@ -796,6 +832,7 @@ pub async fn fetch_gutenberg_book(
                     segment_index: i as i32,
                     page_number: 0,
                     word_count,
+                    embedding,
                     created_at: Some(DateTime::now()),
                     updated_at: Some(DateTime::now()),
                 }
@@ -830,6 +867,13 @@ pub async fn fetch_gutenberg_book(
                 eprintln!("[gutenberg bg] ✅ Finished processing {}: {} segments, 0 chapters",
                     slug_clone, total_segments);
             }
+
+            // Mark Gutenberg cache book as ready
+            let books_coll = db_clone.collection::<Book>("books");
+            books_coll.update_one(
+                doc! { "_id": book_id },
+                doc! { "$set": { "processing_status": "ready" } }
+            ).await.map_err(|e| format!("DB Update ready failed: {}", e))?;
             Ok(())
         }.await;
 

@@ -58,7 +58,8 @@ async fn main() {
             .build(),
     )
     .await
-    .expect("Failed to create books compound index on clerk_id and slug");
+    .map_err(|e| eprintln!("Warning: Failed to create books compound index: {:?}", e))
+    .ok();
 
     // book_segments: compound text index & compound lookups to scope by book_id!. Builds a map of every scanned word in the book.
     let segments = database.collection::<mongodb::bson::Document>("book_segments");
@@ -68,7 +69,8 @@ async fn main() {
             .build(),
     )
     .await
-    .expect("Failed to create book_segments text index");
+    .map_err(|e| eprintln!("Warning: Failed to create book_segments text index: {:?}", e))
+    .ok();
 
     // book_segments: compound unique index on book_id and segment_index to prevent duplicate segments. Also used to keep segments in order.
     segments.create_index(
@@ -78,7 +80,8 @@ async fn main() {
             .build(),
     )
     .await
-    .expect("Failed to create book_segments segment_index unique index");
+    .map_err(|e| eprintln!("Warning: Failed to create book_segments segment_index unique index: {:?}", e))
+    .ok();
 
     // book_segments: compound index on book_id and page_number to scope by book_id and page_number
     segments.create_index(
@@ -87,7 +90,8 @@ async fn main() {
             .build(),
     )
     .await
-    .expect("Failed to create book_segments page_number index");
+    .map_err(|e| eprintln!("Warning: Failed to create book_segments page_number index: {:?}", e))
+    .ok();
 
     // voice_sessions: compound index for billing quota lookups
     let sessions = database.collection::<mongodb::bson::Document>("voice_sessions");
@@ -97,7 +101,8 @@ async fn main() {
             .build(),
     )
     .await
-    .expect("Failed to create voice_sessions billing index");
+    .map_err(|e| eprintln!("Warning: Failed to create voice_sessions billing index: {:?}", e))
+    .ok();
 
     println!("All indexes ensured.");
 
