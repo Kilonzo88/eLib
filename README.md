@@ -19,7 +19,6 @@ The project is structured as a decoupled monorepo full-stack application, ensuri
 - **Why Rust?** Selected for maximum concurrency, performance under high load, and type-safe CPU-bound tasks like processing large PDFs and EPUB files.
 - **RAG Orchestration Workflow:** 
   - The Rust backend acts as the authoritative source of truth for the AI.
-  - Exposes an ultra-fast webhook (`POST /api/vapi/search-book`) for the Vapi agent.
   - Fetches the most conditionally relevant context in real-time.
 - **Processing Engine:** Ingests PDFs and EPUB files, extracts text, and robustly chunks it into ~500-word logical segments.
 
@@ -27,7 +26,7 @@ The project is structured as a decoupled monorepo full-stack application, ensuri
 - **Database:** MongoDB Atlas (accessed via the Rust `mongodb` crate). Heavy reliance on Text Indexes for instant lookups on `Books`, `BookSegments`, and `VoiceSessions`.
 - **File Storage:** Cloudflare R2 handles raw PDF and EPUB binaries and book cover images.
 - **Authentication & Monetization:** Clerk handles identity routing and tier-based billing (Free, Standard, Pro). The backend uses custom Rust middleware to securely verify these Clerk JWTs on every sensitive request strictly at the server level.
-- **Observability:** Sentry is integrated across both layers for error tracking and deep session replays.
+
 
 ## 🚀 Setup & Initialization
 
@@ -37,7 +36,6 @@ The project is structured as a decoupled monorepo full-stack application, ensuri
 - MongoDB Atlas cluster URL
 - Cloudflare R2 access tokens
 - Clerk Dashboard environment variables
-- Vapi secret keys
 
 ### 1. Start the Backend (Rust)
 ```bash
