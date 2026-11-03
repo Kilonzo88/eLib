@@ -107,9 +107,9 @@ async fn main() {
     println!("All indexes ensured.");
 
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(Any) //Would revisit after setting up tauri
+        .allow_methods(GET, POST)
+        .allow_headers(AUTHORIZATION, CONTENT_TYPE);
 
     // ── Router ────────────────────────────────────────────────────────────────
     let app = Router::new()
