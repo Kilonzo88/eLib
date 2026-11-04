@@ -56,6 +56,13 @@ pub async fn chat_with_book(
         ).into_response();
     }
 
+    if !crate::db::vector_search_ready(&db).await {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "AI chat is unavailable because the MongoDB Atlas vector index is not configured. Please configure the 'vector_index' on book_segments.embedding and try again later.",
+        ).into_response();
+    }
+
     let book_id = match book.id {
         Some(id) => id,
         None => return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error: missing book ID").into_response(),
