@@ -24,7 +24,7 @@ export default async function Page() {
     // SSR fetch the Gutenberg catalogue internally from backend
     let gutenbergBooks: GutenbergBook[] = [];
     try {
-        const apiUrl = process.env.API_URL || 'http://localhost:8081';
+        const apiUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8081';
         const res = await fetch(`${apiUrl}/api/books/public`, {
             cache: 'no-store',
         });
