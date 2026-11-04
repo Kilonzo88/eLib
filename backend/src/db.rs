@@ -1,6 +1,28 @@
 use mongodb::{bson::doc, options::{ClientOptions, ServerApi, ServerApiVersion}, Client, Database};
 use std::env;
 
+pub fn has_vector_search_index(names: &[String]) -> bool {
+    names.iter().any(|name| name == "vector_index")
+}
+
+pub async fn vector_search_ready(db: &Database) -> bool {
+    let segments = db.collection::<mongodb::bson::Document>("book_segments");
+
+    match segments.list_index_names().await {
+        Ok(names) => {
+            let ready = has_vector_search_index(&names);
+            if !ready {
+                eprintln!("[db] Missing MongoDB Atlas vector index 'vector_index' on book_segments.embedding. AI chat requires it.");
+            }
+            ready
+        }
+        Err(e) => {
+            eprintln!("[db] Unable to verify vector index readiness: {:?}", e);
+            false
+        }
+    }
+}
+
 pub async fn connect() -> Database {
     let uri = env::var("MONGODB_URI").expect("MONGODB_URI must be set in .env");
 
@@ -31,4 +53,21 @@ pub async fn connect() -> Database {
 
     let db_name = env::var("MONGODB_DB").unwrap_or_else(|_| "elib".to_string());
     client.database(&db_name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::has_vector_search_index;
+
+    #[test]
+    fn detects_vector_index_name() {
+        let names = vec!["_id_".to_string(), "vector_index".to_string(), "content_text".to_string()];
+        assert!(has_vector_search_index(&names));
+    }
+
+    #[test]
+    fn rejects_missing_vector_index_name() {
+        let names = vec!["_id_".to_string(), "content_text".to_string()];
+        assert!(!has_vector_search_index(&names));
+    }
 }
