@@ -130,6 +130,8 @@ pub async fn create_book(
         processing_error: None,
         created_at: DateTime::now(),
         updated_at: DateTime::now(),
+        page_start: None,
+        page_end: None,
     };
 
     // Insert book synchronously so frontend can navigate to it immediately
@@ -705,6 +707,8 @@ pub async fn fetch_gutenberg_book(
         processing_error: None,
         created_at: DateTime::now(),
         updated_at: DateTime::now(),
+        page_start: None,
+        page_end: None,
     };
 
     let books_coll = db.collection::<Book>("books");
