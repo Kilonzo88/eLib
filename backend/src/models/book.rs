@@ -44,8 +44,13 @@ pub struct Book {
 
     pub gutenberg_id: Option<i64>,
     pub processing_status: Option<String>,
+    pub processing_error: Option<String>,
 
     // Timestamps — set manually since MongoDB driver doesn't auto-manage these
     pub created_at: DateTime,
     pub updated_at: DateTime,
+
+    //Add citations
+    //pub page_start: Option<u32>,
+    //pub page_end: Option<u32>,
 }
