@@ -1,4 +1,7 @@
-use mongodb::Database;
+use mongodb::{
+    bson::{doc, DateTime, oid::ObjectId},
+    Database,
+};
 use crate::models::book::Book;
 use crate::models::book_segment::BookSegment;
 use anyhow::Result;
@@ -132,4 +135,91 @@ pub async fn check_user_upload_quota(db: &Database, clerk_id: &str) -> Result<bo
     let limit = 100;
 
     Ok(count < limit)
+}
+
+pub fn determine_processing_state(
+    processing_error: Option<&str>,
+    expected_segment_count: usize,
+    embeddings: Option<Vec<Vec<f32>>>,
+) -> (String, Option<String>) {
+    if let Some(error) = processing_error.filter(|value| !value.trim().is_empty()) {
+        return (
+            "ready".to_string(),
+            Some(format!("AI features are unavailable right now. Please try again later. Details: {}", error.trim())),
+        );
+    }
+
+    let has_complete_embeddings = embeddings
+        .as_ref()
+        .map(|items| items.len() == expected_segment_count && !items.is_empty())
+        .unwrap_or(false);
+
+    if !has_complete_embeddings {
+        return (
+            "ready".to_string(),
+            Some("AI features are unavailable for this book right now. Please try again later.".to_string()),
+        );
+    }
+
+    ("ready".to_string(), None)
+}
+
+pub async fn mark_book_failed(db: &Database, book_id: ObjectId, reason: &str) -> Result<()> {
+    let collection = db.collection::<Book>("books");
+    let summary = reason.trim();
+    let error_summary = if summary.len() > 500 {
+        &summary[..500]
+    } else {
+        summary
+    };
+
+    collection
+        .update_one(
+            doc! { "_id": book_id },
+            doc! {
+                "$set": {
+                    "processing_status": "failed",
+                    "processing_error": error_summary,
+                    "updated_at": DateTime::now(),
+                }
+            },
+        )
+        .await?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::determine_processing_state;
+
+    #[test]
+    fn keeps_book_readable_when_processing_error_is_present() {
+        let (status, error) = determine_processing_state(
+            Some("embedding request failed"),
+            3,
+            Some(vec![vec![0.1; 768], vec![0.2; 768], vec![0.3; 768]]),
+        );
+
+        assert_eq!(status, "ready");
+        assert!(error.is_some());
+        assert!(error.unwrap().contains("try again later"));
+    }
+
+    #[test]
+    fn keeps_book_readable_when_embeddings_are_missing() {
+        let (status, error) = determine_processing_state(None, 2, None);
+
+        assert_eq!(status, "ready");
+        assert!(error.is_some());
+        assert!(error.unwrap().contains("AI features"));
+    }
+
+    #[test]
+    fn marks_ready_when_embeddings_are_complete() {
+        let (status, error) = determine_processing_state(None, 2, Some(vec![vec![0.1; 768], vec![0.2; 768]]));
+
+        assert_eq!(status, "ready");
+        assert!(error.is_none());
+    }
 }
