@@ -18,9 +18,43 @@ pub struct ChatRequest {
     pub history: Vec<serde_json::Value>, // expect format: [{"role": "user"|"model", "text": "..."}]
 }
 
+#[derive(Serialize, Clone, Debug)]
+pub struct Citation {
+    pub segment_index: i32,
+    pub page_number: Option<i32>,
+    pub source: String,
+    pub preview: String,
+}
+
+const CITATION_PREVIEW_CHARS: usize = 180;
+
 #[derive(Serialize)]
 pub struct ChatResponse {
     pub response: String,
+    pub citations: Vec<Citation>,
+}
+
+fn build_citation(segment: &BookSegment) -> Citation {
+    let page_number = if segment.page_number > 0 { Some(segment.page_number) } else { None };
+    let source = match page_number {
+        Some(page) => format!("Page {}", page),
+        None => format!("Segment {}", segment.segment_index + 1),
+    };
+
+    let preview = segment
+        .content
+        .chars()
+        .take(CITATION_PREVIEW_CHARS)
+        .collect::<String>()
+        .trim()
+        .to_string();
+
+    Citation {
+        segment_index: segment.segment_index,
+        page_number,
+        source,
+        preview,
+    }
 }
 
 pub async fn chat_with_book(
@@ -108,10 +142,12 @@ pub async fn chat_with_book(
     };
 
     let mut context_chunks = Vec::new();
+    let mut citations = Vec::new();
     while let Ok(true) = cursor.advance().await {
         if let Ok(doc) = cursor.deserialize_current() {
             if let Ok(segment) = mongodb::bson::from_document::<BookSegment>(doc) {
-                context_chunks.push(segment.content);
+                context_chunks.push(segment.content.clone());
+                citations.push(build_citation(&segment));
             }
         }
     }
@@ -142,10 +178,56 @@ pub async fn chat_with_book(
 
     // 5. Generate Response via Gemini
     match gemini_service::generate_chat(&system_instruction, payload.history, &formatted_query).await {
-        Ok(text) => (StatusCode::OK, Json(ChatResponse { response: text })).into_response(),
+        Ok(text) => (StatusCode::OK, Json(ChatResponse { response: text, citations })).into_response(),
         Err(e) => {
             eprintln!("[chat_with_book] Gemini chat generation failed: {:?}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, "Failed to generate response").into_response()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_citation;
+    use crate::models::book_segment::BookSegment;
+
+    #[test]
+    fn uses_segment_reference_when_page_number_is_unknown() {
+        let segment = BookSegment {
+            id: None,
+            clerk_id: "user".to_string(),
+            book_id: mongodb::bson::oid::ObjectId::new(),
+            content: "This is a long chunk of text that should be shortened in the preview.".to_string(),
+            segment_index: 4,
+            page_number: 0,
+            word_count: 12,
+            embedding: None,
+            created_at: None,
+            updated_at: None,
+        };
+
+        let citation = build_citation(&segment);
+        assert_eq!(citation.source, "Segment 5");
+        assert_eq!(citation.page_number, None);
+    }
+
+    #[test]
+    fn preserves_page_number_when_known() {
+        let segment = BookSegment {
+            id: None,
+            clerk_id: "user".to_string(),
+            book_id: mongodb::bson::oid::ObjectId::new(),
+            content: "A short chunk".to_string(),
+            segment_index: 1,
+            page_number: 42,
+            word_count: 3,
+            embedding: None,
+            created_at: None,
+            updated_at: None,
+        };
+
+        let citation = build_citation(&segment);
+        assert_eq!(citation.source, "Page 42");
+        assert_eq!(citation.page_number, Some(42));
     }
 }
