@@ -3,14 +3,11 @@ use aws_sdk_s3::Client;
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_s3::config::Region;
 
-/// Ensures the R2 bucket has CORS configured to allow browser-side fetching.
-/// Called once during backend startup.
-pub async fn ensure_cors_config() -> Result<()> {
-    let account_id = std::env::var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID must be set");
-    let access_key = std::env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set");
-    let secret_key = std::env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set");
-    let bucket_name = std::env::var("R2_BUCKET_NAME").expect("R2_BUCKET_NAME must be set");
-    
+async fn r2_client() -> Result<(Client, String)> {
+    let account_id = std::env::var("R2_ACCOUNT_ID")?;
+    let access_key = std::env::var("R2_ACCESS_KEY")?;
+    let secret_key = std::env::var("R2_SECRET_KEY")?;
+    let bucket_name = std::env::var("R2_BUCKET_NAME")?;
     let endpoint_url = format!("https://{}.r2.cloudflarestorage.com", account_id);
 
     let region_provider = RegionProviderChain::default_provider().or_else(Region::new("auto"));
@@ -30,7 +27,13 @@ pub async fn ensure_cors_config() -> Result<()> {
         .force_path_style(true)
         .build();
 
-    let client = Client::from_conf(config);
+    Ok((Client::from_conf(config), bucket_name))
+}
+
+/// Ensures the R2 bucket has CORS configured to allow browser-side fetching.
+/// Called once during backend startup.
+pub async fn ensure_cors_config() -> Result<()> {
+    let (client, bucket_name) = r2_client().await?;
 
     use aws_sdk_s3::types::{CorsConfiguration, CorsRule};
 
@@ -63,32 +66,8 @@ pub async fn upload_to_r2(
     slug: &str, 
     ext: &str
 ) -> Result<(String, String)> {
-    let account_id = std::env::var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID must be set");
-    let access_key = std::env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set");
-    let secret_key = std::env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set");
-    let bucket_name = std::env::var("R2_BUCKET_NAME").expect("R2_BUCKET_NAME must be set");
+    let (client, bucket_name) = r2_client().await?;
     let public_url_domain = std::env::var("R2_PUBLIC_URL_DOMAIN").expect("R2_PUBLIC_URL_DOMAIN must be set");
-    
-    let endpoint_url = format!("https://{}.r2.cloudflarestorage.com", account_id);
-
-    let region_provider = RegionProviderChain::default_provider().or_else(Region::new("auto"));
-    let credentials = aws_sdk_s3::config::Credentials::new(
-        &access_key,
-        &secret_key,
-        None,
-        None,
-        "r2",
-    );
-
-    let config = aws_sdk_s3::config::Builder::new()
-        .region(region_provider.region().await)
-        .endpoint_url(&endpoint_url)
-        .credentials_provider(credentials)
-        .behavior_version(aws_sdk_s3::config::BehaviorVersion::v2026_01_12())
-        .force_path_style(true)
-        .build();
-
-    let client = Client::from_conf(config);
 
     // Deterministic path: users/{clerk_id}/{slug}/book.{ext}
     // Gutenberg falls back to gutenberg/{id}/book.epub
@@ -121,32 +100,8 @@ pub async fn upload_image_to_r2(
     clerk_id: &str, 
     slug: &str
 ) -> Result<(String, String)> {
-    let account_id = std::env::var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID must be set");
-    let access_key = std::env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set");
-    let secret_key = std::env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set");
-    let bucket_name = std::env::var("R2_BUCKET_NAME").expect("R2_BUCKET_NAME must be set");
+    let (client, bucket_name) = r2_client().await?;
     let public_url_domain = std::env::var("R2_PUBLIC_URL_DOMAIN").expect("R2_PUBLIC_URL_DOMAIN must be set");
-    
-    let endpoint_url = format!("https://{}.r2.cloudflarestorage.com", account_id);
-
-    let region_provider = RegionProviderChain::default_provider().or_else(Region::new("auto"));
-    let credentials = aws_sdk_s3::config::Credentials::new(
-        &access_key,
-        &secret_key,
-        None,
-        None,
-        "r2",
-    );
-
-    let config = aws_sdk_s3::config::Builder::new()
-        .region(region_provider.region().await)
-        .endpoint_url(&endpoint_url)
-        .credentials_provider(credentials)
-        .behavior_version(aws_sdk_s3::config::BehaviorVersion::v2026_01_12())
-        .force_path_style(true)
-        .build();
-
-    let client = Client::from_conf(config);
 
     // Deterministic cover path
     let r2_key = if clerk_id == "public" {
@@ -171,31 +126,7 @@ pub async fn upload_image_to_r2(
 }
 
 pub async fn get_file_from_r2(key: &str) -> Result<Vec<u8>> {
-    let account_id = std::env::var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID must be set");
-    let access_key = std::env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set");
-    let secret_key = std::env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set");
-    let bucket_name = std::env::var("R2_BUCKET_NAME").expect("R2_BUCKET_NAME must be set");
-    
-    let endpoint_url = format!("https://{}.r2.cloudflarestorage.com", account_id);
-
-    let region_provider = RegionProviderChain::default_provider().or_else(Region::new("auto"));
-    let credentials = aws_sdk_s3::config::Credentials::new(
-        &access_key,
-        &secret_key,
-        None,
-        None,
-        "r2",
-    );
-
-    let config = aws_sdk_s3::config::Builder::new()
-        .region(region_provider.region().await)
-        .endpoint_url(&endpoint_url)
-        .credentials_provider(credentials)
-        .behavior_version(aws_sdk_s3::config::BehaviorVersion::v2026_01_12())
-        .force_path_style(true)
-        .build();
-
-    let client = Client::from_conf(config);
+    let (client, bucket_name) = r2_client().await?;
 
     let res = client
         .get_object()
@@ -209,31 +140,7 @@ pub async fn get_file_from_r2(key: &str) -> Result<Vec<u8>> {
 }
 
 pub async fn generate_presigned_url(key: &str) -> Result<String> {
-    let account_id = std::env::var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID must be set");
-    let access_key = std::env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set");
-    let secret_key = std::env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set");
-    let bucket_name = std::env::var("R2_BUCKET_NAME").expect("R2_BUCKET_NAME must be set");
-    
-    let endpoint_url = format!("https://{}.r2.cloudflarestorage.com", account_id);
-
-    let region_provider = RegionProviderChain::default_provider().or_else(Region::new("auto"));
-    let credentials = aws_sdk_s3::config::Credentials::new(
-        &access_key,
-        &secret_key,
-        None,
-        None,
-        "r2",
-    );
-
-    let config = aws_sdk_s3::config::Builder::new()
-        .region(region_provider.region().await)
-        .endpoint_url(&endpoint_url)
-        .credentials_provider(credentials)
-        .behavior_version(aws_sdk_s3::config::BehaviorVersion::v2026_01_12())
-        .force_path_style(true)
-        .build();
-
-    let client = Client::from_conf(config);
+    let (client, bucket_name) = r2_client().await?;
 
     // Use the presigning config to create a temporary URL (default 1 hour)
     let expires_in = std::time::Duration::from_secs(3600);
@@ -252,31 +159,7 @@ pub async fn generate_presigned_url(key: &str) -> Result<String> {
 }
 
 pub async fn validate_config() -> Result<()> {
-    let account_id = std::env::var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID must be set");
-    let access_key = std::env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set");
-    let secret_key = std::env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set");
-    let bucket_name = std::env::var("R2_BUCKET_NAME").expect("R2_BUCKET_NAME must be set");
-    
-    let endpoint_url = format!("https://{}.r2.cloudflarestorage.com", account_id);
-
-    let region_provider = RegionProviderChain::default_provider().or_else(Region::new("auto"));
-    let credentials = aws_sdk_s3::config::Credentials::new(
-        &access_key,
-        &secret_key,
-        None,
-        None,
-        "r2",
-    );
-
-    let config = aws_sdk_s3::config::Builder::new()
-        .region(region_provider.region().await)
-        .endpoint_url(&endpoint_url)
-        .credentials_provider(credentials)
-        .behavior_version(aws_sdk_s3::config::BehaviorVersion::v2026_01_12())
-        .force_path_style(true)
-        .build();
-
-    let client = Client::from_conf(config);
+    let (client, bucket_name) = r2_client().await?;
 
     // Try to list objects (limit 1) to verify connectivity and permissions
     client
@@ -290,31 +173,7 @@ pub async fn validate_config() -> Result<()> {
 }
 
 pub async fn upload_bytes(key: &str, data: &[u8], content_type: &str) -> Result<()> {
-    let account_id = std::env::var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID must be set");
-    let access_key = std::env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set");
-    let secret_key = std::env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set");
-    let bucket_name = std::env::var("R2_BUCKET_NAME").expect("R2_BUCKET_NAME must be set");
-    
-    let endpoint_url = format!("https://{}.r2.cloudflarestorage.com", account_id);
-
-    let region_provider = RegionProviderChain::default_provider().or_else(Region::new("auto"));
-    let credentials = aws_sdk_s3::config::Credentials::new(
-        &access_key,
-        &secret_key,
-        None,
-        None,
-        "r2",
-    );
-
-    let config = aws_sdk_s3::config::Builder::new()
-        .region(region_provider.region().await)
-        .endpoint_url(&endpoint_url)
-        .credentials_provider(credentials)
-        .behavior_version(aws_sdk_s3::config::BehaviorVersion::v2026_01_12())
-        .force_path_style(true)
-        .build();
-
-    let client = Client::from_conf(config);
+    let (client, bucket_name) = r2_client().await?;
 
     client
         .put_object()
