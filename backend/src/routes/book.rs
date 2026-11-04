@@ -127,6 +127,7 @@ pub async fn create_book(
         total_segments: 0,
         gutenberg_id: None,
         processing_status: Some("processing".to_string()),
+        processing_error: None,
         created_at: DateTime::now(),
         updated_at: DateTime::now(),
     };
@@ -251,9 +252,15 @@ pub async fn create_book(
                     Some(embs)
                 }
                 Err(e) => {
-                    eprintln!("[create_book] Failed to generate embeddings: {:?}", e);
+                    let error_message = format!("[create_book] Failed to generate embeddings: {:?}", e);
+                    eprintln!("{}", error_message);
                     None
                 }
+            };
+            let ai_warning = if embeddings.is_none() {
+                Some("AI features are unavailable for this book right now. Please try again later.".to_string())
+            } else {
+                None
             };
 
             println!("[create_book] Generating segments and chapters...");
@@ -316,11 +323,17 @@ pub async fn create_book(
                 chaps_coll.insert_many(chapters).await.map_err(|e| format!("Chapters insert failed: {}", e))?;
             }
 
-            // Mark book as ready now that extraction and embedding succeeded
+            // Mark the book as readable even if AI indexing is temporarily unavailable.
             let books_coll = db_clone.collection::<Book>("books");
             books_coll.update_one(
                 doc! { "_id": book_id },
-                doc! { "$set": { "processing_status": "ready" } }
+                doc! {
+                    "$set": {
+                        "processing_status": "ready",
+                        "processing_error": ai_warning,
+                        "updated_at": DateTime::now(),
+                    }
+                }
             ).await.map_err(|e| format!("DB Update ready failed: {}", e))?;
 
             Ok(())
@@ -328,6 +341,9 @@ pub async fn create_book(
 
         if let Err(e) = result {
             eprintln!("[create_book] Background processing error for {}: {}", slug_clone, e);
+            if let Err(mark_err) = crate::services::book_service::mark_book_failed(&db_clone, book_id, &e).await {
+                eprintln!("[create_book] Failed to persist failure state for {}: {}", slug_clone, mark_err);
+            }
         } else {
             println!("[create_book] Background processing COMPLETED for {}.", slug_clone);
         }
@@ -686,6 +702,7 @@ pub async fn fetch_gutenberg_book(
         total_segments: 0,
         gutenberg_id: Some(id.parse::<i64>().unwrap_or(0)),
         processing_status: Some("pending".to_string()),
+        processing_error: None,
         created_at: DateTime::now(),
         updated_at: DateTime::now(),
     };
@@ -816,9 +833,15 @@ pub async fn fetch_gutenberg_book(
                     Some(embs)
                 }
                 Err(e) => {
-                    eprintln!("[gutenberg bg] Failed to generate embeddings: {:?}", e);
+                    let error_message = format!("[gutenberg bg] Failed to generate embeddings: {:?}", e);
+                    eprintln!("{}", error_message);
                     None
                 }
+            };
+            let ai_warning = if embeddings.is_none() {
+                Some("AI features are unavailable for this book right now. Please try again later.".to_string())
+            } else {
+                None
             };
 
             let segments: Vec<BookSegment> = chunks.into_iter().enumerate().map(|(i, content)| {
@@ -868,17 +891,26 @@ pub async fn fetch_gutenberg_book(
                     slug_clone, total_segments);
             }
 
-            // Mark Gutenberg cache book as ready
+            // Mark Gutenberg cache book as readable even when AI indexing is unavailable.
             let books_coll = db_clone.collection::<Book>("books");
             books_coll.update_one(
                 doc! { "_id": book_id },
-                doc! { "$set": { "processing_status": "ready" } }
+                doc! {
+                    "$set": {
+                        "processing_status": "ready",
+                        "processing_error": ai_warning,
+                        "updated_at": DateTime::now(),
+                    }
+                }
             ).await.map_err(|e| format!("DB Update ready failed: {}", e))?;
             Ok(())
         }.await;
 
         if let Err(e) = result {
             eprintln!("[gutenberg] Background processing error for {}: {}", slug_clone, e);
+            if let Err(mark_err) = crate::services::book_service::mark_book_failed(&db_clone, book_id, &e).await {
+                eprintln!("[gutenberg] Failed to persist failure state for {}: {}", slug_clone, mark_err);
+            }
         }
     });
 
