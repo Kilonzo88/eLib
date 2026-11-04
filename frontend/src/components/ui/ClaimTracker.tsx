@@ -2,7 +2,6 @@
 
 import React from "react";
 import { useAuth } from "@clerk/nextjs";
-import { getBackendUrl } from "@/lib/utils";
 
 export default function ClaimTracker() {
   const { userId, getToken } = useAuth();
