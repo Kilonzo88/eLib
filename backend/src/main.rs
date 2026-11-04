@@ -4,7 +4,7 @@ pub mod routes;
 pub mod services;
 pub mod middleware;
 
-use axum::{routing::get, Router, extract::DefaultBodyLimit};
+use axum::{extract::DefaultBodyLimit, http::{header, Method}, routing::get, Router};
 use mongodb::bson::doc;
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
@@ -108,8 +108,8 @@ async fn main() {
 
     let cors = CorsLayer::new()
         .allow_origin(Any) //Would revisit after setting up tauri
-        .allow_methods(GET, POST)
-        .allow_headers(AUTHORIZATION, CONTENT_TYPE);
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE]);
 
     // ── Router ────────────────────────────────────────────────────────────────
     let app = Router::new()
