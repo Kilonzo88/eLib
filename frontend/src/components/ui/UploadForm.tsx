@@ -5,7 +5,6 @@ import { useAuth, useClerk } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import Dropzone, { ACCEPTED_IMAGE_TYPES, ACCEPTED_BOOK_TYPES } from "@/components/ui/Dropzone";
-import { getBackendUrl } from "@/lib/utils";
 
 const MAX_BOOK_BYTES = 50 * 1024 * 1024; // 50MB
 
