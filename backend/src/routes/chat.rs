@@ -49,6 +49,13 @@ pub async fn chat_with_book(
         }
     };
 
+    if book.processing_error.as_deref().is_some() {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "AI features are unavailable for this book right now. Please try again later.",
+        ).into_response();
+    }
+
     let book_id = match book.id {
         Some(id) => id,
         None => return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error: missing book ID").into_response(),
