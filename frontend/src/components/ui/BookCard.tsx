@@ -41,8 +41,8 @@ const BookCard = ({ title, author, coverURL, slug, processingStatus }: BookCardP
                 <figure className="book-card-figure relative w-full flex justify-center">
                     <div className="book-card-cover-wrapper relative overflow-hidden rounded-xl shadow-[0_10px_20px_rgba(104,81,65,0.15)] transition-all duration-300 group-hover:shadow-[0_20px_35px_rgba(104,81,65,0.25)] bg-[#f8f4e9] w-[133px] h-[200px] flex-shrink-0">
                         {processingStatus && processingStatus !== "ready" && (
-                            <div className="absolute top-2 right-2 z-10 bg-yellow-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm animate-pulse">
-                                PROCESSING
+                            <div className={`absolute top-2 right-2 z-10 ${processingStatus === 'failed' ? 'bg-red-600/90' : 'bg-yellow-500/90'} text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm ${processingStatus === 'processing' ? 'animate-pulse' : ''}`}>
+                                {processingStatus === 'failed' ? 'FAILED' : 'PROCESSING'}
                             </div>
                         )}
                         {!showPlaceholder ? (
