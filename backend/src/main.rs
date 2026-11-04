@@ -104,6 +104,12 @@ async fn main() {
     .map_err(|e| eprintln!("Warning: Failed to create voice_sessions billing index: {:?}", e))
     .ok();
 
+    if !db::vector_search_ready(&database).await {
+        eprintln!("[startup] WARNING: MongoDB Atlas vector search is not configured. Chat AI will fail until the 'vector_index' index is created on book_segments.embedding.");
+    } else {
+        println!("[startup] MongoDB Atlas vector index check passed for AI chat retrieval.");
+    }
+
     println!("All indexes ensured.");
 
     let cors = CorsLayer::new()
