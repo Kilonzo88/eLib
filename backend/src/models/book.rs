@@ -50,7 +50,7 @@ pub struct Book {
     pub created_at: DateTime,
     pub updated_at: DateTime,
 
-    //Add citations
-    //pub page_start: Option<u32>,
-    //pub page_end: Option<u32>,
+    // citation metadata for the reader UI when page numbers are known
+    pub page_start: Option<u32>,
+    pub page_end: Option<u32>,
 }
