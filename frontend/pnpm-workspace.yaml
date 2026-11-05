@@ -1,3 +1,7 @@
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
+allowBuilds:
+  '@clerk/shared': false
+  core-js: false
+  es5-ext: false
+  msw: false
+  sharp: true
+  unrs-resolver: false
