@@ -2,10 +2,12 @@
 // Run with: cargo run --bin seed
 //
 // Fetches all 32 Gutenberg books, processes them, and stores
-// EPUBs in R2 and segments in MongoDB. Safe to re-run —
-// books already marked as `ready` are skipped automatically.
+// EPUBs in R2 and embedded segments in MongoDB. Safe to re-run —
+// books with ready, embedded segments are skipped; missing vectors are rebuilt.
 
 use backend::db;
+use backend::models::book_segment::BookSegment;
+use backend::services::gemini_service;
 
 use backend::services::gutenberg_service::{
     build_gutenberg_client, chunk_chapter, extract_chapters_from_epub,
@@ -14,6 +16,26 @@ use backend::services::gutenberg_service::{
 // Removed unused import
 use mongodb::bson::doc;
 use std::time::Duration;
+
+async fn mark_ai_unavailable(
+    books_col: &mongodb::Collection<mongodb::bson::Document>,
+    book_id: mongodb::bson::oid::ObjectId,
+) {
+    if let Err(e) = books_col
+        .update_one(
+            doc! { "_id": book_id },
+            doc! {
+                "$set": {
+                    "processing_error": "AI features are unavailable for this book right now. Please try again later.",
+                    "updated_at": mongodb::bson::DateTime::now(),
+                }
+            },
+        )
+        .await
+    {
+        println!("  ✗ Failed to record embedding error: {e}");
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -48,8 +70,21 @@ async fn main() {
         if let Some(ref doc) = existing {
             let status = doc.get_str("processing_status").unwrap_or("unknown");
             if status == "ready" {
-                println!("  ✓ Already processed — skipping\n");
-                continue;
+                let expected_segments = doc.get_i32("total_segments").unwrap_or(0).max(0) as u64;
+                let embedded_segments = segments_col
+                    .count_documents(doc! {
+                        "book_id": book_id,
+                        "embedding": { "$type": "array" },
+                    })
+                    .await
+                    .unwrap_or(0);
+
+                if expected_segments > 0 && embedded_segments >= expected_segments {
+                    println!("  ✓ Already processed with embeddings — skipping\n");
+                    continue;
+                }
+
+                println!("  → Rebuilding missing embeddings ({embedded_segments}/{expected_segments} segments ready)...");
             }
         }
 
@@ -101,34 +136,78 @@ async fn main() {
             all_segments.len()
         );
 
+        if all_segments.is_empty() {
+            println!("  ✗ No text segments extracted; skipping book\n");
+            continue;
+        }
+
+        println!("  → Generating vector embeddings...");
+        let embeddings = match gemini_service::embed_texts(all_segments.clone()).await {
+            Ok(embeddings)
+                if embeddings.len() == all_segments.len()
+                    && embeddings.iter().all(|embedding| embedding.len() == 768) =>
+            {
+                embeddings
+            }
+            Ok(embeddings) => {
+                println!(
+                    "  ✗ Embedding response mismatch: {} vectors for {} segments",
+                    embeddings.len(),
+                    all_segments.len()
+                );
+                mark_ai_unavailable(&books_col, book_id).await;
+                continue;
+            }
+            Err(e) => {
+                println!("  ✗ Embedding generation failed: {e}");
+                mark_ai_unavailable(&books_col, book_id).await;
+                continue;
+            }
+        };
+
         // ── Save segments to MongoDB ──────────────────────────────────
         println!("  → Saving segments to MongoDB...");
 
-        // Remove any stale segments from a previous failed run
-        segments_col
-            .delete_many(doc! { "book_id": book_id })
-            .await
-            .ok();
-
-        let segment_docs: Vec<mongodb::bson::Document> = all_segments
+        let segment_docs = all_segments
             .iter()
+            .zip(&embeddings)
             .enumerate()
-            .map(|(idx, text)| {
-                doc! {
-                    "book_id": book_id,
-                    "clerk_id": "public",
-                    "gutenberg_id": gutenberg_id as i64,
-                    "segment_index": idx as i64,
-                    "content": text,
-                    "word_count": text.split_whitespace().count() as i64,
-                    "page_number": 0,
-                }
+            .map(|(idx, (text, embedding))| {
+                mongodb::bson::to_document(&BookSegment {
+                    id: None,
+                    clerk_id: "public".to_string(),
+                    book_id,
+                    content: text.clone(),
+                    segment_index: idx as i32,
+                    page_number: 0,
+                    word_count: text.split_whitespace().count() as i32,
+                    embedding: Some(embedding.clone()),
+                    created_at: Some(mongodb::bson::DateTime::now()),
+                    updated_at: Some(mongodb::bson::DateTime::now()),
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>, _>>();
+
+        let segment_docs = match segment_docs {
+            Ok(docs) => docs,
+            Err(e) => {
+                println!("  ✗ Segment serialization failed: {e}\n");
+                mark_ai_unavailable(&books_col, book_id).await;
+                continue;
+            }
+        };
+
+        // Remove stale segments only after extraction and embedding both succeed.
+        if let Err(e) = segments_col.delete_many(doc! { "book_id": book_id }).await {
+            println!("  ✗ Stale segment cleanup failed: {e}\n");
+            mark_ai_unavailable(&books_col, book_id).await;
+            continue;
+        }
 
         if !segment_docs.is_empty() {
             if let Err(e) = segments_col.insert_many(segment_docs).await {
                 println!("  ✗ MongoDB segment insert failed: {e}\n");
+                mark_ai_unavailable(&books_col, book_id).await;
                 continue;
             }
         }
@@ -154,7 +233,10 @@ async fn main() {
             "$setOnInsert": {
                 "_id": book_id,
                 "created_at": mongodb::bson::DateTime::now(),
-            }
+            },
+            "$unset": {
+                "processing_error": "",
+            },
         };
 
         books_col
