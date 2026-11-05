@@ -88,7 +88,7 @@ export default function BookChat({ slug, selectedText, onClearSelection, classNa
             ]);
         } catch (err: unknown) {
             console.error('Chat error:', err);
-            setError(err instanceof Error ? err.message : 'Something went wrong. Please check your API configuration.');
+            setError('AI Chat not available right now. Please try again later.');
             // Remove user message if it failed so they can re-try easily
             setMessages((prev) => prev.slice(0, -1));
             setInput(trimmedInput);
