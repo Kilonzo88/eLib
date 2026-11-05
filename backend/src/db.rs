@@ -1,26 +1,49 @@
-use mongodb::{bson::doc, options::{ClientOptions, ServerApi, ServerApiVersion}, Client, Database};
+use mongodb::{bson::{doc, Document}, options::{ClientOptions, ServerApi, ServerApiVersion}, Client, Database};
 use std::env;
 
-pub fn has_vector_search_index(names: &[String]) -> bool {
-    names.iter().any(|name| name == "vector_index")
+fn is_ready_vector_search_index(index: &Document) -> bool {
+    index.get_str("name").ok() == Some("vector_index")
+        && index.get_str("type").ok() == Some("vectorSearch")
+        && index.get_str("status").ok() == Some("READY")
+        && index.get_bool("queryable").unwrap_or(false)
 }
 
 pub async fn vector_search_ready(db: &Database) -> bool {
     let segments = db.collection::<mongodb::bson::Document>("book_segments");
 
-    match segments.list_index_names().await {
-        Ok(names) => {
-            let ready = has_vector_search_index(&names);
-            if !ready {
-                eprintln!("[db] Missing MongoDB Atlas vector index 'vector_index' on book_segments.embedding. AI chat requires it.");
-            }
-            ready
-        }
+    let mut indexes = match segments.list_search_indexes().await {
+        Ok(indexes) => indexes,
         Err(e) => {
-            eprintln!("[db] Unable to verify vector index readiness: {:?}", e);
-            false
+            eprintln!("[db] Unable to list Atlas Search indexes: {:?}", e);
+            return false;
+        }
+    };
+
+    loop {
+        match indexes.advance().await {
+            Ok(true) => {
+                let index: Document = match indexes.deserialize_current() {
+                    Ok(index) => index,
+                    Err(e) => {
+                        eprintln!("[db] Unable to read Atlas Search index: {:?}", e);
+                        return false;
+                    }
+                };
+
+                if is_ready_vector_search_index(&index) {
+                    return true;
+                }
+            }
+            Ok(false) => break,
+            Err(e) => {
+                eprintln!("[db] Unable to read Atlas Search indexes: {:?}", e);
+                return false;
+            }
         }
     }
+
+    eprintln!("[db] Atlas Vector Search index 'vector_index' is missing or not queryable on book_segments.");
+    false
 }
 
 pub async fn connect() -> Database {
@@ -57,17 +80,43 @@ pub async fn connect() -> Database {
 
 #[cfg(test)]
 mod tests {
-    use super::has_vector_search_index;
+    use super::is_ready_vector_search_index;
+    use mongodb::bson::doc;
 
     #[test]
-    fn detects_vector_index_name() {
-        let names = vec!["_id_".to_string(), "vector_index".to_string(), "content_text".to_string()];
-        assert!(has_vector_search_index(&names));
+    fn detects_ready_vector_search_index() {
+        let index = doc! {
+            "name": "vector_index",
+            "type": "vectorSearch",
+            "status": "READY",
+            "queryable": true,
+        };
+        assert!(is_ready_vector_search_index(&index));
     }
 
     #[test]
-    fn rejects_missing_vector_index_name() {
-        let names = vec!["_id_".to_string(), "content_text".to_string()];
-        assert!(!has_vector_search_index(&names));
+    fn rejects_wrong_type_and_not_ready_vector_indexes() {
+        let wrong_type = doc! {
+            "name": "vector_index",
+            "type": "search",
+            "status": "READY",
+            "queryable": true,
+        };
+        let building = doc! {
+            "name": "vector_index",
+            "type": "vectorSearch",
+            "status": "BUILDING",
+            "queryable": false,
+        };
+        let other_name = doc! {
+            "name": "other_index",
+            "type": "vectorSearch",
+            "status": "READY",
+            "queryable": true,
+        };
+
+        assert!(!is_ready_vector_search_index(&wrong_type));
+        assert!(!is_ready_vector_search_index(&building));
+        assert!(!is_ready_vector_search_index(&other_name));
     }
 }
