@@ -1,12 +1,17 @@
 pub mod db;
+pub mod middleware;
 pub mod models;
 pub mod routes;
 pub mod services;
-pub mod middleware;
 
-use axum::{extract::DefaultBodyLimit, http::{header, Method}, routing::get, Router};
-use mongodb::bson::doc;
+use axum::{
+    Router,
+    extract::DefaultBodyLimit,
+    http::{Method, header},
+    routing::get,
+};
 use mongodb::IndexModel;
+use mongodb::bson::doc;
 use mongodb::options::IndexOptions;
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
@@ -48,66 +53,105 @@ async fn main() {
     // We wrap this in a match to avoid crashing if the index name or collection state varies.
     match books.drop_index("slug_1").await {
         Ok(_) => println!("Successfully dropped legacy globabl slug_1 index."),
-        Err(e) => println!("Note: skip dropping 'slug_1' index (may already be gone): {:?}", e),
+        Err(e) => println!(
+            "Note: skip dropping 'slug_1' index (may already be gone): {:?}",
+            e
+        ),
     }
 
-    books.create_index(
-        IndexModel::builder()
-            .keys(doc! { "clerk_id": 1, "slug": 1 })
-            .options(IndexOptions::builder().unique(true).build())
-            .build(),
-    )
-    .await
-    .map_err(|e| eprintln!("Warning: Failed to create books compound index: {:?}", e))
-    .ok();
+    books
+        .create_index(
+            IndexModel::builder()
+                .keys(doc! { "clerk_id": 1, "slug": 1 })
+                .options(IndexOptions::builder().unique(true).build())
+                .build(),
+        )
+        .await
+        .map_err(|e| eprintln!("Warning: Failed to create books compound index: {:?}", e))
+        .ok();
 
     // book_segments: compound text index & compound lookups to scope by book_id!. Builds a map of every scanned word in the book.
     let segments = database.collection::<mongodb::bson::Document>("book_segments");
-    segments.create_index(
-        IndexModel::builder()
-            .keys(doc! { "content": "text" })
-            .build(),
-    )
-    .await
-    .map_err(|e| eprintln!("Warning: Failed to create book_segments text index: {:?}", e))
-    .ok();
+    segments
+        .create_index(
+            IndexModel::builder()
+                .keys(doc! { "content": "text" })
+                .build(),
+        )
+        .await
+        .map_err(|e| {
+            eprintln!(
+                "Warning: Failed to create book_segments text index: {:?}",
+                e
+            )
+        })
+        .ok();
 
     // book_segments: compound unique index on book_id and segment_index to prevent duplicate segments. Also used to keep segments in order.
-    segments.create_index(
-        IndexModel::builder()
-            .keys(doc! { "book_id": 1, "segment_index": 1 })
-            .options(IndexOptions::builder().unique(true).build())
-            .build(),
-    )
-    .await
-    .map_err(|e| eprintln!("Warning: Failed to create book_segments segment_index unique index: {:?}", e))
-    .ok();
+    segments
+        .create_index(
+            IndexModel::builder()
+                .keys(doc! { "book_id": 1, "segment_index": 1 })
+                .options(IndexOptions::builder().unique(true).build())
+                .build(),
+        )
+        .await
+        .map_err(|e| {
+            eprintln!(
+                "Warning: Failed to create book_segments segment_index unique index: {:?}",
+                e
+            )
+        })
+        .ok();
 
     // book_segments: compound index on book_id and page_number to scope by book_id and page_number
-    segments.create_index(
-        IndexModel::builder()
-            .keys(doc! { "book_id": 1, "page_number": 1 })
-            .build(),
-    )
-    .await
-    .map_err(|e| eprintln!("Warning: Failed to create book_segments page_number index: {:?}", e))
-    .ok();
+    segments
+        .create_index(
+            IndexModel::builder()
+                .keys(doc! { "book_id": 1, "page_number": 1 })
+                .build(),
+        )
+        .await
+        .map_err(|e| {
+            eprintln!(
+                "Warning: Failed to create book_segments page_number index: {:?}",
+                e
+            )
+        })
+        .ok();
 
     // voice_sessions: compound index for billing quota lookups
-    let sessions = database.collection::<mongodb::bson::Document>("voice_sessions");
-    sessions.create_index(
-        IndexModel::builder()
-            .keys(doc! { "clerk_id": 1, "billing_period_start": 1 })
-            .build(),
-    )
-    .await
-    .map_err(|e| eprintln!("Warning: Failed to create voice_sessions billing index: {:?}", e))
-    .ok();
+    // let sessions = database.collection::<mongodb::bson::Document>("voice_sessions");
+    // sessions
+    //     .create_index(
+    //         IndexModel::builder()
+    //             .keys(doc! { "clerk_id": 1, "billing_period_start": 1 })
+    //             .build(),
+    //     )
+    //     .await
+    //     .map_err(|e| {
+    //         eprintln!(
+    //             "Warning: Failed to create voice_sessions billing index: {:?}",
+    //             e
+    //         )
+    //     })
+    //     .ok();
 
     if !db::vector_search_ready(&database).await {
-        eprintln!("[startup] WARNING: MongoDB Atlas vector search is not configured. Chat AI will fail until the 'vector_index' index is created on book_segments.embedding.");
+        eprintln!(
+            "[startup] WARNING: Atlas Automated Embeddings is not ready. Chat will be disabled \
+             until the '{}' autoEmbed index on book_segments.{} is READY. Run \
+             `cargo run --bin setup_vector_index` to create it.",
+            db::VECTOR_INDEX_NAME,
+            db::VECTOR_TEXT_FIELD
+        );
     } else {
-        println!("[startup] MongoDB Atlas vector index check passed for AI chat retrieval.");
+        println!(
+            "[startup] Atlas vector index '{}' is READY (autoEmbed on book_segments.{} via {}).",
+            db::VECTOR_INDEX_NAME,
+            db::VECTOR_TEXT_FIELD,
+            db::EMBEDDING_MODEL
+        );
     }
 
     println!("All indexes ensured.");
