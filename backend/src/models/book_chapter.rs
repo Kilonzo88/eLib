@@ -1,4 +1,4 @@
-use mongodb::bson::{oid::ObjectId, DateTime};
+use mongodb::bson::{DateTime, oid::ObjectId};
 use serde::{Deserialize, Serialize};
 
 /// Represents a structural segment of a book (e.g., a chapter) containing fully formatted HTML.
@@ -11,10 +11,10 @@ pub struct BookChapter {
     pub clerk_id: String,
     pub book_id: ObjectId,
 
-    pub title: Option<String>,  // e.g., "Chapter 1", or None if unnamed
-    pub html_content: String,   // Raw XHTML / HTML extracted from the EPUB
+    pub title: Option<String>, // e.g., "Chapter 1", or None if unnamed
+    pub html_content: String,  // Raw XHTML / HTML extracted from the EPUB
 
-    pub chapter_index: i32,     // For sequential ordering
+    pub chapter_index: i32, // For sequential ordering
 
     pub created_at: Option<DateTime>,
     pub updated_at: Option<DateTime>,
