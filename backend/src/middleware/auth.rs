@@ -1,9 +1,9 @@
 use axum::{
     async_trait,
     extract::FromRequestParts,
-    http::{request::Parts, StatusCode},
+    http::{StatusCode, request::Parts},
 };
-use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
 use serde::{Deserialize, Serialize};
 use std::env;
 
@@ -26,33 +26,44 @@ where
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         // 1. Get Authorization header
-        let auth_header = parts.headers.get("Authorization")
+        let auth_header = parts
+            .headers
+            .get("Authorization")
             .and_then(|h| h.to_str().ok())
-            .ok_or((StatusCode::UNAUTHORIZED, "Missing Authorization header".into()))?;
+            .ok_or((
+                StatusCode::UNAUTHORIZED,
+                "Missing Authorization header".into(),
+            ))?;
 
         if !auth_header.starts_with("Bearer ") {
-            return Err((StatusCode::UNAUTHORIZED, "Invalid Authorization header".into()));
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                "Invalid Authorization header".into(),
+            ));
         }
 
         let token = &auth_header[7..];
 
         // 2. Validate JWT (Clerk)
         let pem = env::var("CLERK_PEM_PUBLIC_KEY").map_err(|_| {
-            (StatusCode::INTERNAL_SERVER_ERROR, "CLERK_PEM_PUBLIC_KEY not set".into())
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "CLERK_PEM_PUBLIC_KEY not set".into(),
+            )
         })?;
 
         let decoding_key = DecodingKey::from_rsa_pem(pem.as_bytes()).map_err(|e| {
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("Invalid decoding key: {}", e))
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Invalid decoding key: {}", e),
+            )
         })?;
 
         let mut validation = Validation::new(Algorithm::RS256);
         validation.validate_exp = true;
 
-        let token_data = decode::<Claims>(
-            token,
-            &decoding_key,
-            &validation,
-        ).map_err(|e| (StatusCode::UNAUTHORIZED, format!("Invalid token: {}", e)))?;
+        let token_data = decode::<Claims>(token, &decoding_key, &validation)
+            .map_err(|e| (StatusCode::UNAUTHORIZED, format!("Invalid token: {}", e)))?;
 
         Ok(AuthenticatedUser {
             user_id: token_data.claims.sub,
@@ -77,12 +88,14 @@ where
         match AuthenticatedUser::from_request_parts(parts, state).await {
             Ok(user) => {
                 println!("[OptionalUser] Found user: {}", user.user_id);
-                Ok(OptionalUser { user_id: Some(user.user_id) })
-            },
+                Ok(OptionalUser {
+                    user_id: Some(user.user_id),
+                })
+            }
             Err(_) => {
                 println!("[OptionalUser] No user found (using guest)");
                 Ok(OptionalUser { user_id: None })
-            },
+            }
         }
     }
 }
