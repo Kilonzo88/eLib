@@ -1,4 +1,4 @@
-use mongodb::bson::{oid::ObjectId, DateTime};
+use mongodb::bson::{DateTime, oid::ObjectId};
 use serde::{Deserialize, Serialize, Serializer};
 
 /// Serialise an `Option<ObjectId>` as a plain hex string (e.g. "6634abc123…")
