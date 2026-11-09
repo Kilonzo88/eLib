@@ -8,12 +8,15 @@ import { cn } from '@/lib/utils';
 // Configure worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
+const MAX_PAGE_WIDTH = 950; // a PDF page never renders wider than this at 100% zoom
+
 interface PdfReaderProps {
     data: ArrayBuffer;
     onTextSelect?: (text: string, pageNumber: number) => void;
+    onNavigateToPage?: (navigate: (pageNumber: number) => void) => void;
 }
 
-export default function PdfReader({ data, onTextSelect }: PdfReaderProps) {
+export default function PdfReader({ data, onTextSelect, onNavigateToPage }: PdfReaderProps) {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const pagesContainerRef = useRef<HTMLDivElement>(null);
     const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -23,6 +26,7 @@ export default function PdfReader({ data, onTextSelect }: PdfReaderProps) {
     const observerRef = useRef<IntersectionObserver | null>(null);
     const pageObserverRef = useRef<IntersectionObserver | null>(null);
     const visiblePagesRef = useRef<Map<number, number>>(new Map());
+    const currentPageRef = useRef(1); // mirrors currentPage so rebuilds can restore scroll position
 
     const [totalPages, setTotalPages] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
@@ -35,6 +39,15 @@ export default function PdfReader({ data, onTextSelect }: PdfReaderProps) {
     const [showOverlay, setShowOverlay] = useState(false);
 
     const router = useRouter();
+    const navigateToPage = useCallback((pageNumber: number) => {
+        const page = pagesContainerRef.current?.querySelector<HTMLElement>(`[data-page="${pageNumber}"]`);
+        page?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, []);
+
+    useEffect(() => {
+        onNavigateToPage?.(navigateToPage);
+    }, [navigateToPage, onNavigateToPage]);
+
     const overlayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const handleTap = useCallback(() => {
@@ -58,21 +71,34 @@ export default function PdfReader({ data, onTextSelect }: PdfReaderProps) {
         };
     }, []);
 
-    // Track responsive container width
+    // Track responsive container width (debounced, capped at MAX_PAGE_WIDTH)
     useEffect(() => {
         const wrapper = wrapperRef.current;
         if (!wrapper) return;
-        
+
+        let timer: ReturnType<typeof setTimeout> | null = null;
+
+        const measure = (width: number) => {
+            // On mobile, use 100% width (0 padding). On desktop, leave 48px combined padding.
+            const padding = window.innerWidth < 768 ? 0 : 48;
+            const next = Math.min(Math.floor(width - padding), MAX_PAGE_WIDTH);
+            // Ignore sub-2px changes so tiny layout jitter does not re-render every page
+            setBaseWidth((prev) => (prev !== null && Math.abs(prev - next) < 2 ? prev : next));
+        };
+
+        measure(wrapper.clientWidth); // first measurement is immediate
+
         const resizeObserver = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                // On mobile, use 100% width (0 padding). On desktop, leave 48px combined padding.
-                const padding = window.innerWidth < 768 ? 0 : 48;
-                setBaseWidth(Math.floor(entry.contentRect.width - padding));
-            }
+            const width = entries[0].contentRect.width;
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => measure(width), 120);
         });
-        
+
         resizeObserver.observe(wrapper);
-        return () => resizeObserver.disconnect();
+        return () => {
+            if (timer) clearTimeout(timer);
+            resizeObserver.disconnect();
+        };
     }, []);
 
     // Render a single page into its placeholder div
@@ -120,7 +146,6 @@ export default function PdfReader({ data, onTextSelect }: PdfReaderProps) {
                 canvasContext: ctx, 
                 viewport,
                 intent: "display",
-                // @ts-ignore
                 canvas: canvas,
             }).promise;
 
@@ -152,6 +177,9 @@ export default function PdfReader({ data, onTextSelect }: PdfReaderProps) {
         if (!data || data.byteLength === 0) return;
 
         let cancelled = false;
+        currentPageRef.current = 1;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCurrentPage(1);
 
         const initPdf = async () => {
             try {
@@ -227,6 +255,13 @@ export default function PdfReader({ data, onTextSelect }: PdfReaderProps) {
             placeholders.push(pageDiv);
         }
 
+        // Restore the reading position after a rebuild (divider drag, window resize, zoom)
+        const scroller = wrapperRef.current;
+        const restoreTarget = placeholders[currentPageRef.current - 1];
+        if (scroller && restoreTarget && currentPageRef.current > 1) {
+            scroller.scrollTo({ top: restoreTarget.offsetTop, behavior: 'instant' as ScrollBehavior });
+        }
+
         // Observer for rendering pages ahead of scroll
         const renderObserver = new IntersectionObserver(
             (entries) => {
@@ -268,7 +303,10 @@ export default function PdfReader({ data, onTextSelect }: PdfReaderProps) {
                             bestPage = page;
                         }
                     });
-                    if (bestPage > 0) setCurrentPage(bestPage);
+                    if (bestPage > 0) {
+                        currentPageRef.current = bestPage;
+                        setCurrentPage(bestPage);
+                    }
                 }
             },
             { threshold: [0, 0.25, 0.5, 0.75, 1.0] }
@@ -290,7 +328,12 @@ export default function PdfReader({ data, onTextSelect }: PdfReaderProps) {
     useEffect(() => {
         const handleSelection = () => {
             const selection = window.getSelection();
-            if (selection && selection.toString().trim() && onTextSelect) {
+            if (
+                selection &&
+                selection.toString().trim() &&
+                onTextSelect &&
+                wrapperRef.current?.contains(selection.anchorNode)
+            ) {
                 const anchorNode = selection.anchorNode;
                 const pageEl = anchorNode?.parentElement?.closest('.pdf-page-placeholder');
                 const pageNum = pageEl ? parseInt(pageEl.getAttribute('data-page') || '0') : 0;
@@ -319,7 +362,7 @@ export default function PdfReader({ data, onTextSelect }: PdfReaderProps) {
     }
 
     return (
-        <div className="fixed inset-0 z-50 md:relative md:inset-auto md:z-10 w-full md:rounded-2xl md:bg-[var(--card)] md:border md:border-[var(--border)] md:shadow-sm overflow-hidden flex flex-col h-[100dvh] md:h-[85vh] bg-[#f8f9fa] dark:bg-[#0f172a]">
+        <div className="fixed inset-0 z-50 md:relative md:inset-auto md:z-10 w-full overflow-hidden flex flex-col h-[100dvh] md:h-full bg-[#f8f9fa] dark:bg-[#0f172a]">
             <style>{`
                 .textLayer {
                     position: absolute;
