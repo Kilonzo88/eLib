@@ -1,4 +1,4 @@
-use axum::{routing::get, routing::post, Router};
+use axum::{Router, routing::get, routing::post};
 use mongodb::Database;
 
 pub mod book;
