@@ -45,18 +45,24 @@ export function LibraryHero({ isSignedIn = false }: LibraryHeroProps) {
                 {[
                     { n: 1, title: "Upload PDF", sub: "Add your book file" },
                     { n: 2, title: "AI Processing", sub: "We analyze the content" },
-                    { n: 3, title: "Voice Chat", sub: "Discuss with AI" },
-                ].map(({ n, title, sub }) => (
+                    { n: 3, title: "Voice Chat", sub: "Discuss with AI", comingSoon: true },
+                ].map(({ n, title, sub, comingSoon }) => (
                     <div
                         key={n}
-                        className="flex items-start gap-3 rounded-xl bg-background px-4 py-3 shadow-md transition-transform hover:scale-[1.02]"
+                        className={`flex items-start gap-3 rounded-xl bg-background px-4 py-3 shadow-md transition-transform hover:scale-[1.02] ${comingSoon ? 'library-hero-step--soon' : ''}`}
                     >
                         <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-[oklch(0.880_0.030_76)] text-xs font-medium text-[oklch(0.510_0.030_62)]">
                             {n}
                         </span>
                         <div>
-                            <p className="text-sm font-medium text-[oklch(0.192_0.025_55)]">{title}</p>
-                            <p className="text-xs text-[oklch(0.510_0.030_62)]">{sub}</p>
+                            <p className={`text-sm font-medium ${comingSoon ? 'text-[color-mix(in_oklab,var(--foreground)_60%,var(--background))]' : 'text-[oklch(0.192_0.025_55)]'}`}>{title}</p>
+                            <p className={`text-xs ${comingSoon ? 'text-[color-mix(in_oklab,var(--muted-foreground)_75%,var(--background))]' : 'text-[oklch(0.510_0.030_62)]'}`}>{sub}</p>
+                            {comingSoon && (
+                                <span className="library-hero-coming-soon">
+                                    <span className="library-hero-coming-soon__dot" aria-hidden="true" />
+                                    Coming soon
+                                </span>
+                            )}
                         </div>
                     </div>
                 ))}
