@@ -1,42 +1,54 @@
-use lol_html::{element, text, HtmlRewriter, MemorySettings, Settings};
-use reqwest::{header, Client};
+use lol_html::{HtmlRewriter, MemorySettings, Settings, element, text};
+use reqwest::{Client, header};
 use std::time::Duration;
 
 /// The 32 books exposed in your MVP.
 /// Tuple of (gutenberg_id, canonical_title, author)
 pub const GUTENBERG_CATALOGUE: &[(u32, &str, &str)] = &[
-    (84,   "Frankenstein",                          "Mary Shelley"),
-    (1342, "Pride and Prejudice",                   "Jane Austen"),
-    (2701, "Moby-Dick",                             "Herman Melville"),
-    (11,   "Alice's Adventures in Wonderland",      "Lewis Carroll"),
-    (1661, "The Adventures of Sherlock Holmes",     "Arthur Conan Doyle"),
-    (98,   "A Tale of Two Cities",                  "Charles Dickens"),
-    (1260, "Jane Eyre",                             "Charlotte Brontë"),
-    (174,  "The Picture of Dorian Gray",            "Oscar Wilde"),
-    (345,  "Dracula",                               "Bram Stoker"),
-    (76,   "Adventures of Huckleberry Finn",        "Mark Twain"),
-    (1080, "A Modest Proposal",                     "Jonathan Swift"),
-    (2591, "Grimms' Fairy Tales",                   "Brothers Grimm"),
-    (4300, "Ulysses",                               "James Joyce"),
-    (5200, "Metamorphosis",                         "Franz Kafka"),
-    (1232, "The Prince",                            "Niccolò Machiavelli"),
-    (2554, "Crime and Punishment",                  "Fyodor Dostoevsky"),
-    (2600, "War and Peace",                         "Leo Tolstoy"),
-    (768,  "Wuthering Heights",                     "Emily Brontë"),
-    (514,  "Little Women",                          "Louisa May Alcott"),
-    (1184, "The Count of Monte Cristo",             "Alexandre Dumas"),
-    (844,  "The Importance of Being Earnest",       "Oscar Wilde"),
-    (16,   "Peter Pan",                             "J. M. Barrie"),
-    (1400, "Great Expectations",                    "Charles Dickens"),
-    (46,   "A Christmas Carol",                     "Charles Dickens"),
-    (730,  "Oliver Twist",                          "Charles Dickens"),
-    (120,  "Treasure Island",                       "Robert Louis Stevenson"),
-    (161,  "Sense and Sensibility",                 "Jane Austen"),
-    (1952, "The Yellow Wallpaper",                  "Charlotte Perkins Gilman"),
-    (219,  "Heart of Darkness",                     "Joseph Conrad"),
-    (23,   "Narrative of the Life of Frederick Douglass", "Frederick Douglass"),
-    (100,  "The Complete Works of Shakespeare",     "William Shakespeare"),
-    (3207, "Leviathan",                             "Thomas Hobbes"),
+    (84, "Frankenstein", "Mary Shelley"),
+    (1342, "Pride and Prejudice", "Jane Austen"),
+    (2701, "Moby-Dick", "Herman Melville"),
+    (11, "Alice's Adventures in Wonderland", "Lewis Carroll"),
+    (
+        1661,
+        "The Adventures of Sherlock Holmes",
+        "Arthur Conan Doyle",
+    ),
+    (98, "A Tale of Two Cities", "Charles Dickens"),
+    (1260, "Jane Eyre", "Charlotte Brontë"),
+    (174, "The Picture of Dorian Gray", "Oscar Wilde"),
+    (345, "Dracula", "Bram Stoker"),
+    (76, "Adventures of Huckleberry Finn", "Mark Twain"),
+    (1080, "A Modest Proposal", "Jonathan Swift"),
+    (2591, "Grimms' Fairy Tales", "Brothers Grimm"),
+    (4300, "Ulysses", "James Joyce"),
+    (5200, "Metamorphosis", "Franz Kafka"),
+    (1232, "The Prince", "Niccolò Machiavelli"),
+    (2554, "Crime and Punishment", "Fyodor Dostoevsky"),
+    (2600, "War and Peace", "Leo Tolstoy"),
+    (768, "Wuthering Heights", "Emily Brontë"),
+    (514, "Little Women", "Louisa May Alcott"),
+    (1184, "The Count of Monte Cristo", "Alexandre Dumas"),
+    (844, "The Importance of Being Earnest", "Oscar Wilde"),
+    (16, "Peter Pan", "J. M. Barrie"),
+    (1400, "Great Expectations", "Charles Dickens"),
+    (46, "A Christmas Carol", "Charles Dickens"),
+    (730, "Oliver Twist", "Charles Dickens"),
+    (120, "Treasure Island", "Robert Louis Stevenson"),
+    (161, "Sense and Sensibility", "Jane Austen"),
+    (1952, "The Yellow Wallpaper", "Charlotte Perkins Gilman"),
+    (219, "Heart of Darkness", "Joseph Conrad"),
+    (
+        23,
+        "Narrative of the Life of Frederick Douglass",
+        "Frederick Douglass",
+    ),
+    (
+        100,
+        "The Complete Works of Shakespeare",
+        "William Shakespeare",
+    ),
+    (3207, "Leviathan", "Thomas Hobbes"),
 ];
 
 pub fn build_gutenberg_client() -> Client {
@@ -102,8 +114,8 @@ pub fn extract_chapters_from_epub(epub_bytes: &[u8]) -> anyhow::Result<Vec<Strin
     use std::io::Cursor;
 
     let cursor = Cursor::new(epub_bytes);
-    let mut doc = EpubDoc::from_reader(cursor)
-        .map_err(|e| anyhow::anyhow!("EPUB parse error: {e}"))?;
+    let mut doc =
+        EpubDoc::from_reader(cursor).map_err(|e| anyhow::anyhow!("EPUB parse error: {e}"))?;
 
     let mut chapters: Vec<String> = Vec::new();
 
@@ -130,8 +142,8 @@ pub fn extract_chapters_from_epub(epub_bytes: &[u8]) -> anyhow::Result<Vec<Strin
 /// always sealing a chunk at the end of a complete <p>, <li>, or heading element.
 /// A sentence is never split mid-way.
 pub fn chunk_chapter(html: &str, target_words: usize) -> Vec<String> {
-    use std::rc::Rc;
     use std::cell::RefCell;
+    use std::rc::Rc;
 
     let segments = Rc::new(RefCell::new(Vec::new()));
     let current_chunk = Rc::new(RefCell::new(String::new()));
