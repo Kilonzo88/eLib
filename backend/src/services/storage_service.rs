@@ -1,6 +1,6 @@
 use anyhow::Result;
-use aws_sdk_s3::Client;
 use aws_config::meta::region::RegionProviderChain;
+use aws_sdk_s3::Client;
 use aws_sdk_s3::config::Region;
 
 async fn r2_client() -> Result<(Client, String)> {
@@ -11,13 +11,8 @@ async fn r2_client() -> Result<(Client, String)> {
     let endpoint_url = format!("https://{}.r2.cloudflarestorage.com", account_id);
 
     let region_provider = RegionProviderChain::default_provider().or_else(Region::new("auto"));
-    let credentials = aws_sdk_s3::config::Credentials::new(
-        &access_key,
-        &secret_key,
-        None,
-        None,
-        "r2",
-    );
+    let credentials =
+        aws_sdk_s3::config::Credentials::new(&access_key, &secret_key, None, None, "r2");
 
     let config = aws_sdk_s3::config::Builder::new()
         .region(region_provider.region().await)
@@ -41,13 +36,14 @@ pub async fn ensure_cors_config() -> Result<()> {
         .set_allowed_origins(Some(vec!["*".to_string()]))
         .set_allowed_methods(Some(vec!["GET".to_string(), "HEAD".to_string()]))
         .set_allowed_headers(Some(vec!["*".to_string()]))
-        .set_expose_headers(Some(vec!["Content-Length".to_string(), "Content-Type".to_string()]))
+        .set_expose_headers(Some(vec![
+            "Content-Length".to_string(),
+            "Content-Type".to_string(),
+        ]))
         .max_age_seconds(3600)
         .build()?;
 
-    let cors_config = CorsConfiguration::builder()
-        .cors_rules(cors_rule)
-        .build()?;
+    let cors_config = CorsConfiguration::builder().cors_rules(cors_rule).build()?;
 
     client
         .put_bucket_cors()
@@ -61,13 +57,14 @@ pub async fn ensure_cors_config() -> Result<()> {
 }
 
 pub async fn upload_to_r2(
-    file_path: &std::path::Path, 
-    clerk_id: &str, 
-    slug: &str, 
-    ext: &str
+    file_path: &std::path::Path,
+    clerk_id: &str,
+    slug: &str,
+    ext: &str,
 ) -> Result<(String, String)> {
     let (client, bucket_name) = r2_client().await?;
-    let public_url_domain = std::env::var("R2_PUBLIC_URL_DOMAIN").expect("R2_PUBLIC_URL_DOMAIN must be set");
+    let public_url_domain =
+        std::env::var("R2_PUBLIC_URL_DOMAIN").expect("R2_PUBLIC_URL_DOMAIN must be set");
 
     // Deterministic path: users/{clerk_id}/{slug}/book.{ext}
     // Gutenberg falls back to gutenberg/{id}/book.epub
@@ -79,8 +76,12 @@ pub async fn upload_to_r2(
     };
 
     let byte_stream = aws_sdk_s3::primitives::ByteStream::from_path(file_path).await?;
-    let content_type = if ext == "epub" { "application/epub+zip" } else { "application/pdf" };
-    
+    let content_type = if ext == "epub" {
+        "application/epub+zip"
+    } else {
+        "application/pdf"
+    };
+
     client
         .put_object()
         .bucket(&bucket_name)
@@ -96,12 +97,13 @@ pub async fn upload_to_r2(
 }
 
 pub async fn upload_image_to_r2(
-    image_data: &[u8], 
-    clerk_id: &str, 
-    slug: &str
+    image_data: &[u8],
+    clerk_id: &str,
+    slug: &str,
 ) -> Result<(String, String)> {
     let (client, bucket_name) = r2_client().await?;
-    let public_url_domain = std::env::var("R2_PUBLIC_URL_DOMAIN").expect("R2_PUBLIC_URL_DOMAIN must be set");
+    let public_url_domain =
+        std::env::var("R2_PUBLIC_URL_DOMAIN").expect("R2_PUBLIC_URL_DOMAIN must be set");
 
     // Deterministic cover path
     let r2_key = if clerk_id == "public" {
