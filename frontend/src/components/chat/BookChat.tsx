@@ -9,16 +9,35 @@ interface Message {
     role: 'user' | 'assistant';
     text: string;
     selected_text?: string;
+    citations?: Citation[];
+}
+
+interface Citation {
+    segment_index: number;
+    page_number: number | null;
+    page_start: number | null;
+    page_end: number | null;
+    chapter_index: number | null;
+    chapter_title: string | null;
+    source: string;
+    preview: string;
+}
+
+interface ChatResponse {
+    response: string;
+    citations?: Citation[];
 }
 
 interface BookChatProps {
     slug: string;
     selectedText: string | null;
     onClearSelection: () => void;
+    onCitationPage?: (pageNumber: number) => void;
+    onCitationChapter?: (chapterIndex: number, passage: string) => void;
     className?: string;
 }
 
-export default function BookChat({ slug, selectedText, onClearSelection, className }: BookChatProps) {
+export default function BookChat({ slug, selectedText, onClearSelection, onCitationPage, onCitationChapter, className }: BookChatProps) {
     const { getToken } = useAuth();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
@@ -81,10 +100,10 @@ export default function BookChat({ slug, selectedText, onClearSelection, classNa
                 throw new Error(errText);
             }
 
-            const data = await res.json();
+            const data: ChatResponse = await res.json();
             setMessages((prev) => [
                 ...prev,
-                { role: 'assistant', text: data.response }
+                { role: 'assistant', text: data.response, citations: data.citations ?? [] }
             ]);
         } catch (err: unknown) {
             console.error('Chat error:', err);
@@ -98,7 +117,7 @@ export default function BookChat({ slug, selectedText, onClearSelection, classNa
     };
 
     return (
-        <div className={cn("flex flex-col bg-transparent lg:bg-[var(--card)] lg:shadow-md overflow-hidden", className || "h-[550px] border border-[var(--border)] rounded-2xl")}>
+        <div className={cn("flex flex-col bg-transparent overflow-hidden", className || "h-[550px] border border-[var(--border)] rounded-2xl lg:bg-[var(--card)] lg:shadow-md")}>
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border)]/30 bg-transparent">
                 <div className="flex items-center gap-2 opacity-70">
@@ -115,9 +134,10 @@ export default function BookChat({ slug, selectedText, onClearSelection, classNa
             </div>
 
             {/* Chat Body */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col space-y-3">
                 {messages.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full text-center p-4 opacity-60">
+                    <div className="flex flex-1 flex-col items-center justify-center text-center p-4 opacity-60">
                         <span className="text-3xl mb-1">📚</span>
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--foreground)]">Ask about this book</p>
                         <p className="text-[10px] text-[var(--muted-foreground)] mt-1 max-w-[200px]">
@@ -154,6 +174,38 @@ export default function BookChat({ slug, selectedText, onClearSelection, classNa
                                     </ReactMarkdown>
                                 </div>
                             )}
+                            {msg.role === 'assistant' && !!msg.citations?.length && (
+                                <div className="mt-2 border-t border-[var(--border)]/50 pt-2">
+                                    <p className="mb-1 text-[10px] font-semibold text-[var(--muted-foreground)]">Sources</p>
+                                    <ul className="space-y-1">
+                                        {msg.citations.map((citation) => (
+                                            <li key={citation.segment_index} className="text-[10px] text-[var(--muted-foreground)]">
+                                                {citation.page_start && onCitationPage ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onCitationPage(citation.page_start!)}
+                                                        className="font-medium text-[var(--foreground)] underline decoration-dotted underline-offset-2 hover:text-[var(--primary)]"
+                                                        title="Open this page in the reader"
+                                                    >
+                                                        {citation.source}
+                                                    </button>
+                                                ) : citation.chapter_index && onCitationChapter ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onCitationChapter(citation.chapter_index!, citation.preview)}
+                                                        className="font-medium text-[var(--foreground)] underline decoration-dotted underline-offset-2 hover:text-[var(--primary)]"
+                                                        title="Open this source in the reader"
+                                                    >
+                                                        Open in book
+                                                    </button>
+                                                ) : (
+                                                    <span className="font-medium text-[var(--foreground)]">{citation.source}</span>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -174,6 +226,7 @@ export default function BookChat({ slug, selectedText, onClearSelection, classNa
                     </div>
                 )}
                 <div ref={messagesEndRef} />
+              </div>
             </div>
 
             {/* Selection Context Indicator */}
@@ -193,7 +246,7 @@ export default function BookChat({ slug, selectedText, onClearSelection, classNa
 
             {/* Input Footer */}
             <div className="p-2 border-t border-[var(--border)]/30 bg-transparent">
-                <form onSubmit={handleSubmit} className="relative flex items-center w-full">
+                <form onSubmit={handleSubmit} className="relative mx-auto flex w-full max-w-2xl items-center">
                     <input
                         type="text"
                         value={input}
