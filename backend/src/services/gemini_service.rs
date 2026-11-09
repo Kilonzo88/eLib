@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -48,117 +48,11 @@ struct GenerateContentResponse {
     candidates: Option<Vec<GenerateContentResponseCandidate>>,
 }
 
-// Embedding serialisation structures
-#[derive(Serialize)]
-struct EmbeddingContent {
-    parts: Vec<ContentPart>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct EmbedContentRequest {
-    model: String,
-    content: EmbeddingContent,
-    output_dimensionality: i32,
-}
-
-#[derive(Serialize)]
-struct EmbedBatchRequest {
-    requests: Vec<EmbedContentRequest>,
-}
-
-#[derive(Deserialize)]
-struct EmbeddingValues {
-    values: Vec<f32>,
-}
-
-#[derive(Deserialize)]
-struct EmbedContentResponse {
-    embedding: EmbeddingValues,
-}
-
-#[derive(Deserialize)]
-struct EmbedBatchResponse {
-    embeddings: Vec<EmbeddingValues>,
-}
-
 fn get_api_key() -> Result<String> {
-    env::var("GEMINI_API_KEY")
-        .map_err(|_| anyhow!("GEMINI_API_KEY environment variable not set"))
+    env::var("GEMINI_API_KEY").map_err(|_| anyhow!("GEMINI_API_KEY environment variable not set"))
 }
 
-/// Generates a single 768-dimensional embedding vector for the given text.
-pub async fn embed_text(text: &str) -> Result<Vec<f32>> {
-    let api_key = get_api_key()?;
-    let client = Client::new();
-    let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={}",
-        api_key
-    );
-
-    let req = EmbedContentRequest {
-        model: "models/gemini-embedding-001".to_string(),
-        content: EmbeddingContent {
-            parts: vec![ContentPart { text: text.to_string() }],
-        },
-        output_dimensionality: 768,
-    };
-
-    let res = client.post(&url).json(&req).send().await?;
-    if !res.status().is_success() {
-        let err_text = res.text().await.unwrap_or_default();
-        return Err(anyhow!("Gemini embedding API failed: {}", err_text));
-    }
-
-    let resp_body: EmbedContentResponse = res.json().await?;
-    Ok(resp_body.embedding.values)
-}
-
-/// Generates multiple 768-dimensional embeddings in a single batch request (max 100 per batch).
-pub async fn embed_texts(texts: Vec<String>) -> Result<Vec<Vec<f32>>> {
-    if texts.is_empty() {
-        return Ok(vec![]);
-    }
-
-    let api_key = get_api_key()?;
-    let client = Client::new();
-    let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key={}",
-        api_key
-    );
-
-    let mut all_embeddings = Vec::new();
-
-    // Chunk into batches of up to 100 to stay within limits
-    for chunk in texts.chunks(100) {
-        let requests = chunk
-            .iter()
-            .map(|text| EmbedContentRequest {
-                model: "models/gemini-embedding-001".to_string(),
-                content: EmbeddingContent {
-                    parts: vec![ContentPart { text: text.clone() }],
-                },
-                output_dimensionality: 768,
-            })
-            .collect::<Vec<_>>();
-
-        let req = EmbedBatchRequest { requests };
-        let res = client.post(&url).json(&req).send().await?;
-        if !res.status().is_success() {
-            let err_text = res.text().await.unwrap_or_default();
-            return Err(anyhow!("Gemini batch embedding API failed: {}", err_text));
-        }
-
-        let resp_body: EmbedBatchResponse = res.json().await?;
-        for emb in resp_body.embeddings {
-            all_embeddings.push(emb.values);
-        }
-    }
-
-    Ok(all_embeddings)
-}
-
-/// Generates a response from gemini-3.5-flash given conversational history, active selection context, and retrieval chunks.
+/// Generates a response from gemini-2.5-flash given conversational history, active selection context, and retrieval chunks.
 pub async fn generate_chat(
     sys_instruction: &str,
     history: Vec<serde_json::Value>, // expect format: [{"role": "user"|"model", "text": "..."}]
@@ -182,7 +76,9 @@ pub async fn generate_chat(
         if !text.is_empty() {
             contents.push(Content {
                 role: mapped_role.to_string(),
-                parts: vec![ContentPart { text: text.to_string() }],
+                parts: vec![ContentPart {
+                    text: text.to_string(),
+                }],
             });
         }
     }
@@ -190,7 +86,9 @@ pub async fn generate_chat(
     // Append the latest user query
     contents.push(Content {
         role: "user".to_string(),
-        parts: vec![ContentPart { text: new_message_text.to_string() }],
+        parts: vec![ContentPart {
+            text: new_message_text.to_string(),
+        }],
     });
 
     let system_instruction = if !sys_instruction.is_empty() {
