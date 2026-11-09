@@ -55,6 +55,12 @@
    The visual language of a well-loved library.
 ───────────────────────────────────────────── */
 :root {
+  --soon-dot: #f28c28;
+  --soon-text: #d96a00;
+  --soon-glow: rgba(242, 140, 40, 0.55);
+  --soon-glow-low: rgba(242, 140, 40, 0.40);
+  --soon-glow-high: rgba(242, 140, 40, 0.75);
+
   --font-sans: var(--font-mona-sans);
   --font-serif: var(--font-ibm-plex-serif);
 
@@ -121,6 +127,50 @@
   --sidebar-accent-foreground: oklch(0.280 0.040 55);
   --sidebar-border: oklch(0.865 0.032 74);
   --sidebar-ring: oklch(0.680 0.095 72);
+}
+
+.library-hero-coming-soon {
+  display: inline-flex;
+  margin-top: 6px;
+  align-items: center;
+  gap: 6px;
+  color: var(--soon-text);
+  font-family: var(--font-sans), sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+.library-hero-coming-soon__dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--soon-dot);
+  box-shadow: 0 0 6px 2px var(--soon-glow);
+  animation: library-hero-soon-pulse 2s ease-in-out infinite;
+}
+
+@keyframes library-hero-soon-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px 1px var(--soon-glow-low);
+    opacity: 0.85;
+  }
+  50% {
+    box-shadow: 0 0 10px 3px var(--soon-glow-high);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-hero-coming-soon__dot {
+    animation: none;
+  }
 }
 
 /* ─────────────────────────────────────────────
