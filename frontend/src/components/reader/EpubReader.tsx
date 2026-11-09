@@ -8,9 +8,10 @@ import { cn } from '@/lib/utils';
 interface EpubReaderProps {
     data: ArrayBuffer;
     onTextSelect?: (text: string, cfiRange: string) => void;
+    onNavigateToChapter?: (navigate: (chapterIndex: number, passage: string) => void) => void;
 }
 
-export default function EpubReader({ data, onTextSelect }: EpubReaderProps) {
+export default function EpubReader({ data, onTextSelect, onNavigateToChapter }: EpubReaderProps) {
     const viewerRef = useRef<HTMLDivElement>(null);
     const bookRef = useRef<Book | null>(null);
     const renditionRef = useRef<Rendition | null>(null);
@@ -24,6 +25,11 @@ export default function EpubReader({ data, onTextSelect }: EpubReaderProps) {
     const router = useRouter();
     const overlayTimerRef = useRef<NodeJS.Timeout | null>(null);
     const onTextSelectRef = useRef(onTextSelect);
+    const navigateToChapterRef = useRef<(chapterIndex: number, passage: string) => void>(() => {});
+
+    useEffect(() => {
+        onNavigateToChapter?.((chapterIndex, passage) => navigateToChapterRef.current(chapterIndex, passage));
+    }, [onNavigateToChapter]);
 
     useEffect(() => {
         onTextSelectRef.current = onTextSelect;
@@ -66,6 +72,30 @@ export default function EpubReader({ data, onTextSelect }: EpubReaderProps) {
                     flow: 'scrolled',
                 });
                 renditionRef.current = rendition;
+                navigateToChapterRef.current = async (chapterIndex: number, passage: string) => {
+                    const section = book.spine.get(Math.max(0, chapterIndex - 1));
+                    if (!section?.href) return;
+
+                    // Citation previews identify the matching passage inside the
+                    // EPUB section, so the link lands at the evidence itself.
+                    try {
+                        await section.load(book.load.bind(book));
+                        const searchable = section as unknown as {
+                            find: (query: string) => Array<{ cfi: string }>;
+                        };
+                        const trimmedPassage = passage.trim();
+                        let match: { cfi: string } | undefined;
+                        for (const length of [80, 60, 40, 25]) {
+                            const query = trimmedPassage.slice(0, length);
+                            if (query.length < 20) continue;
+                            match = searchable.find(query)[0];
+                            if (match) break;
+                        }
+                        await rendition.display(match?.cfi ?? section.href);
+                    } catch {
+                        await rendition.display(section.href);
+                    }
+                };
 
                 // Page calculation
                 book.ready.then(() => {
@@ -76,13 +106,15 @@ export default function EpubReader({ data, onTextSelect }: EpubReaderProps) {
                     }
                 }).catch(err => console.error("Error generating locations", err));
 
-                rendition.on('relocated', (location: any) => {
+                rendition.on('relocated', (location: { start: { cfi: string } }) => {
                     if (book.locations.length() > 0) {
                         try {
                             const percent = book.locations.percentageFromCfi(location.start.cfi);
                             const calcPage = Math.abs(Math.round(percent * book.locations.length()));
                             setCurrentPage(calcPage > 0 ? calcPage : 1);
-                        } catch (e) {}
+                        } catch {
+                            // ignore calculation error
+                        }
                     }
                 });
 
@@ -97,7 +129,8 @@ export default function EpubReader({ data, onTextSelect }: EpubReaderProps) {
                         'line-height': '1.8 !important',
                         'color': 'var(--foreground, #1a1a1a) !important',
                         'padding': '0 1rem !important',
-                        'max-width': '100% !important',
+                        'max-width': '70ch !important',
+                        'margin': '0 auto !important',
                     },
                     'p': {
                         'margin-bottom': '1em !important',
@@ -147,6 +180,27 @@ export default function EpubReader({ data, onTextSelect }: EpubReaderProps) {
         };
     }, [data]);
 
+    // Re-flow the book when the pane is resized (divider drag, window resize)
+    useEffect(() => {
+        const el = viewerRef.current;
+        if (!el) return;
+
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const ro = new ResizeObserver(([entry]) => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => {
+                const { width, height } = entry.contentRect;
+                if (width > 0 && height > 0) renditionRef.current?.resize(width, height);
+            }, 120);
+        });
+
+        ro.observe(el);
+        return () => {
+            if (timer) clearTimeout(timer);
+            ro.disconnect();
+        };
+    }, []);
+
     if (error) {
         return (
             <div className="flex flex-col items-center justify-center py-24 text-center rounded-2xl bg-[var(--card)] border border-[var(--border)]">
@@ -158,7 +212,7 @@ export default function EpubReader({ data, onTextSelect }: EpubReaderProps) {
     }
 
     return (
-        <div className="fixed inset-0 z-50 md:relative md:inset-auto md:z-10 w-full md:rounded-2xl md:bg-[var(--card)] md:border md:border-[var(--border)] md:shadow-sm overflow-hidden flex flex-col h-[100dvh] md:h-[85vh] bg-[#f8f9fa] dark:bg-[#0f172a]">
+        <div className="fixed inset-0 z-50 md:relative md:inset-auto md:z-10 w-full overflow-hidden flex flex-col h-[100dvh] md:h-full bg-[#f8f9fa] dark:bg-[#0f172a]">
             {isLoading && (
                 <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-[var(--card)]">
                     <div className="w-10 h-10 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
