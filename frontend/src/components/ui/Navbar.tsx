@@ -18,7 +18,7 @@ const Navbar = () => {
     ];
 
     // Hide navbar on mobile when reading a book to maximize space
-    const isBookReader = pathName.startsWith('/books/');
+    const isBookReader = pathName.startsWith('/books/') && pathName !== '/books/new';
 
     const [isMounted, setIsMounted] = useState(false);
     useEffect(() => {
