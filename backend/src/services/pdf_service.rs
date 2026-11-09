@@ -9,7 +9,48 @@ pub struct BookMetadata {
 
 pub fn extract_text_from_pdf(pdf_path: &std::path::Path) -> Result<String> {
     let text = pdf_extract::extract_text(pdf_path)?;
+    if !is_usable_extracted_text(&text) {
+        return Err(anyhow::anyhow!(
+            "PDF text extraction produced unreadable or incomplete text; refusing to index it"
+        ));
+    }
     Ok(text)
+}
+
+pub fn extract_text_by_page(pdf_path: &std::path::Path) -> Result<Vec<(i32, String)>> {
+    // Use the same extractor as whole-document ingestion. lopdf's lower-level
+    // text extraction does not reliably decode some Identity-H font maps and
+    // can return literal "Unimplemented" markers as if they were book text.
+    Ok(pdf_extract::extract_text_by_pages(pdf_path)?
+        .into_iter()
+        .enumerate()
+        .map(|(index, text)| {
+            let text = if is_usable_extracted_text(&text) {
+                text
+            } else {
+                String::new()
+            };
+            ((index + 1) as i32, text)
+        })
+        .collect())
+}
+
+/// Reject known PDF font-decoding failures before they become RAG evidence.
+pub fn is_usable_extracted_text(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    if lower.contains("unimplemented")
+        || lower.contains("identity-h")
+        || text.contains('\u{fffd}')
+        || text.split_whitespace().count() < 3
+    {
+        return false;
+    }
+
+    // A damaged font map can produce mostly punctuation/control-like glyphs
+    // without the literal `Unimplemented` marker. Reject that output too.
+    let visible = text.chars().filter(|ch| !ch.is_whitespace()).count();
+    let readable = text.chars().filter(|ch| ch.is_alphanumeric()).count();
+    visible > 0 && readable * 4 >= visible
 }
 
 /// Convert PDF plain text into structured HTML chapters.
