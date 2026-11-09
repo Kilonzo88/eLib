@@ -1,17 +1,17 @@
+use crate::models::book::Book;
+use crate::models::book_chapter::BookChapter;
+use crate::models::book_segment::BookSegment;
+use crate::services::{book_service, epub_service, pdf_service};
 use axum::{
-    extract::{State, Multipart, Path},
-    Json, 
-    response::IntoResponse, 
-    http::StatusCode
+    Json,
+    extract::{Multipart, Path, State},
+    http::StatusCode,
+    response::IntoResponse,
 };
 use mongodb::bson::doc;
 use mongodb::bson::oid::ObjectId;
 use mongodb::{Database, bson::DateTime};
 use serde::Deserialize;
-use crate::models::book::Book;
-use crate::models::book_segment::BookSegment;
-use crate::models::book_chapter::BookChapter;
-use crate::services::{book_service, pdf_service, epub_service};
 
 /// Returns true if the file bytes look like an EPUB (which is a ZIP archive starting with PK).
 fn is_epub(data: &[u8]) -> bool {
@@ -23,7 +23,10 @@ pub async fn create_book(
     user: crate::middleware::auth::OptionalUser,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
-    println!("[create_book] Handler reached. Clerk ID: {:?}", user.user_id);
+    println!(
+        "[create_book] Handler reached. Clerk ID: {:?}",
+        user.user_id
+    );
     let mut title = String::new();
     let mut author = None;
     let mut persona = None;
@@ -47,14 +50,26 @@ pub async fn create_book(
                     "file" => {
                         let tf = match tempfile::NamedTempFile::new() {
                             Ok(tf) => tf,
-                            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create temp file: {:?}", e)).into_response(),
+                            Err(e) => {
+                                return (
+                                    StatusCode::INTERNAL_SERVER_ERROR,
+                                    format!("Failed to create temp file: {:?}", e),
+                                )
+                                    .into_response();
+                            }
                         };
                         let (file, path) = tf.into_parts();
                         let mut tokio_file = tokio::fs::File::from_std(file);
-                        
+
                         while let Ok(Some(chunk)) = field.chunk().await {
-                            if let Err(e) = tokio::io::AsyncWriteExt::write_all(&mut tokio_file, &chunk).await {
-                                return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to write chunk: {:?}", e)).into_response();
+                            if let Err(e) =
+                                tokio::io::AsyncWriteExt::write_all(&mut tokio_file, &chunk).await
+                            {
+                                return (
+                                    StatusCode::INTERNAL_SERVER_ERROR,
+                                    format!("Failed to write chunk: {:?}", e),
+                                )
+                                    .into_response();
                             }
                             file_size += chunk.len();
                         }
@@ -66,18 +81,26 @@ pub async fn create_book(
             Ok(None) => break, // no more fields
             Err(e) => {
                 eprintln!("[create_book] Multipart parsing error: {:?}", e);
-                return (StatusCode::BAD_REQUEST, format!("Multipart error: {:?}", e)).into_response();
+                return (StatusCode::BAD_REQUEST, format!("Multipart error: {:?}", e))
+                    .into_response();
             }
         }
     }
 
-    eprintln!("[create_book] Received: title={:?}, file_size={}", title, file_size);
+    eprintln!(
+        "[create_book] Received: title={:?}, file_size={}",
+        title, file_size
+    );
     if title.is_empty() || clerk_id.is_empty() || file_temp_path.is_none() || file_size == 0 {
-        return (StatusCode::BAD_REQUEST, "Missing required fields or empty file").into_response();
+        return (
+            StatusCode::BAD_REQUEST,
+            "Missing required fields or empty file",
+        )
+            .into_response();
     }
 
     let file_temp_path = file_temp_path.unwrap();
-    
+
     let epub = {
         let mut magic = [0u8; 2];
         if let Ok(mut f) = std::fs::File::open(&file_temp_path) {
@@ -104,10 +127,14 @@ pub async fn create_book(
         Ok(s) => s,
         Err(e) => {
             eprintln!("Error generating unique slug: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Error generating unique slug").into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Error generating unique slug",
+            )
+                .into_response();
         }
     };
-    
+
     // Initial storage metadata (will be populated with actual R2 data by the background worker)
     let file_url = String::new();
     let storage_key = String::new();
@@ -140,11 +167,18 @@ pub async fn create_book(
         Ok(r) => r,
         Err(e) => {
             eprintln!("[create_book] Failed to insert book {}: {}", slug, e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to save book: {}", e)).into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to save book: {}", e),
+            )
+                .into_response();
         }
     };
     // Use the MongoDB-generated _id (guaranteed to be an ObjectId)
-    let book_id = insert_result.inserted_id.as_object_id().expect("MongoDB always generates ObjectId for _id");
+    let book_id = insert_result
+        .inserted_id
+        .as_object_id()
+        .expect("MongoDB always generates ObjectId for _id");
 
     let mut book_for_response = book.clone();
     book_for_response.id = Some(book_id);
@@ -154,12 +188,16 @@ pub async fn create_book(
 
     // Background task: text extraction, R2 upload, segments & chapters
     tokio::spawn(async move {
-        println!("[create_book] Starting background processing for slug: {}", slug_clone);
+        println!(
+            "[create_book] Starting background processing for slug: {}",
+            slug_clone
+        );
         // CRITICAL: Keep file_temp_path (TempPath) alive for the entire background task.
         let _temp_guard = file_temp_path;
         let file_path_for_extract = _temp_guard.to_path_buf();
         let file_path_for_upload = _temp_guard.to_path_buf();
         let file_path_for_chapters = _temp_guard.to_path_buf();
+        let file_path_for_locations = _temp_guard.to_path_buf();
         let result: Result<(), String> = async {
             println!("[create_book] Extracting text and cover...");
             let slug_for_blocking = slug_clone.clone();
@@ -175,7 +213,10 @@ pub async fn create_book(
                     match epub_service::extract_cover_from_epub(&file_path_for_extract) {
                         Some((bytes, _mime)) => Some(bytes),
                         None => {
-                            eprintln!("[create_book] No cover found in EPUB for {}", slug_for_blocking);
+                            eprintln!(
+                                "[create_book] No cover found in EPUB for {}",
+                                slug_for_blocking
+                            );
                             None
                         }
                     }
@@ -183,44 +224,162 @@ pub async fn create_book(
                     let temp_dir = tempfile::tempdir().ok();
                     let res = temp_dir.and_then(|dir| {
                         let png_path = dir.path().join("cover.png");
-                        if let Err(e) = crate::services::image_service::generate_cover_from_pdf(&file_path_for_extract, &png_path) {
-                            eprintln!("[create_book] PDF cover generation failed for {}: {:?}", slug_for_blocking, e);
+                        if let Err(e) = crate::services::image_service::generate_cover_from_pdf(
+                            &file_path_for_extract,
+                            &png_path,
+                        ) {
+                            eprintln!(
+                                "[create_book] PDF cover generation failed for {}: {:?}",
+                                slug_for_blocking, e
+                            );
                             return None;
                         }
                         std::fs::read(&png_path).ok()
                     });
                     if res.is_none() {
-                        eprintln!("[create_book] PDF cover read failed for {} (check image_service logs)", slug_for_blocking);
+                        eprintln!(
+                            "[create_book] PDF cover read failed for {} (check image_service logs)",
+                            slug_for_blocking
+                        );
                     }
                     res
                 };
                 (text_res, cover)
-            }).await.map_err(|e| format!("Join error: {}", e))?;
+            })
+            .await
+            .map_err(|e| format!("Join error: {}", e))?;
 
             let text = extraction_result.map_err(|e| format!("Extraction failed: {}", e))?;
 
-            println!("[create_book] Chunking text...");
+            let epub_chapters = if epub {
+                let chapters_path = file_path_for_chapters.clone();
+                match tokio::task::spawn_blocking(move || {
+                    epub_service::extract_chapters_from_epub(&chapters_path)
+                })
+                .await
+                {
+                    Ok(Ok(chapters)) => chapters,
+                    Ok(Err(e)) => {
+                        eprintln!("[create_book] EPUB chapter extraction failed: {:?}", e);
+                        Vec::new()
+                    }
+                    Err(e) => {
+                        eprintln!("[create_book] EPUB chapter extraction task failed: {:?}", e);
+                        Vec::new()
+                    }
+                }
+            } else {
+                Vec::new()
+            };
+
+            let mut pdf_page_texts = if !epub {
+                let page_path = file_path_for_locations.clone();
+                match tokio::task::spawn_blocking(move || {
+                    pdf_service::extract_text_by_page(&page_path)
+                })
+                .await
+                {
+                    Ok(Ok(pages)) => pages,
+                    Ok(Err(e)) => {
+                        eprintln!("[create_book] PDF page extraction failed: {:?}", e);
+                        Vec::new()
+                    }
+                    Err(e) => {
+                        eprintln!("[create_book] PDF page extraction task failed: {:?}", e);
+                        Vec::new()
+                    }
+                }
+            } else {
+                Vec::new()
+            };
+
+            // Keep only pages that survived PDF font decoding. If the page
+            // extractor cannot produce readable text, chunk the validated
+            // whole-document extraction below (or fail ingestion if that is
+            // unreadable too); never persist decoder placeholders as evidence.
+            pdf_page_texts
+                .retain(|(_, page_text)| pdf_service::is_usable_extracted_text(page_text));
+
+            println!("[create_book] Chunking text with source locations...");
             let text_for_chunks = text.clone();
-            let (chunks, total_segments) = tokio::task::spawn_blocking(move || {
-                let chunk_size = std::env::var("BOOK_CHUNK_SIZE").unwrap_or("500".into()).parse().unwrap_or(500);
-                let chunk_overlap = std::env::var("BOOK_CHUNK_OVERLAP").unwrap_or("50".into()).parse().unwrap_or(50);
-                let chunks = book_service::chunk_text(&text_for_chunks, chunk_size, chunk_overlap);
+            let epub_chapters_for_chunks = epub_chapters.clone();
+            let (located_chunks, total_segments) = tokio::task::spawn_blocking(move || {
+                let chunk_size = std::env::var("BOOK_CHUNK_SIZE")
+                    .unwrap_or("500".into())
+                    .parse()
+                    .unwrap_or(500);
+                let chunk_overlap = std::env::var("BOOK_CHUNK_OVERLAP")
+                    .unwrap_or("50".into())
+                    .parse()
+                    .unwrap_or(50);
+                let sources = if epub && !epub_chapters_for_chunks.is_empty() {
+                    epub_chapters_for_chunks
+                        .iter()
+                        .enumerate()
+                        .map(|(index, chapter)| book_service::SourceText {
+                            text: html2text::from_read(chapter.html.as_bytes(), usize::MAX)
+                                .unwrap_or_default(),
+                            page_start: None,
+                            page_end: None,
+                            chapter_index: Some(index as i32 + 1),
+                            chapter_title: chapter.title.clone(),
+                        })
+                        .collect()
+                } else if !pdf_page_texts.is_empty() {
+                    pdf_page_texts
+                        .into_iter()
+                        .map(|(page_number, text)| book_service::SourceText {
+                            text,
+                            page_start: Some(page_number),
+                            page_end: Some(page_number),
+                            chapter_index: None,
+                            chapter_title: None,
+                        })
+                        .collect()
+                } else {
+                    vec![book_service::SourceText {
+                        text: text_for_chunks,
+                        page_start: None,
+                        page_end: None,
+                        chapter_index: None,
+                        chapter_title: None,
+                    }]
+                };
+                let chunks = book_service::chunk_source_texts(sources, chunk_size, chunk_overlap);
                 let count = chunks.len() as i32;
                 (chunks, count)
-            }).await.map_err(|e| format!("Join error: {}", e))?;
+            })
+            .await
+            .map_err(|e| format!("Join error: {}", e))?;
 
             println!("[create_book] Uploading file to R2...");
             // 3. R2 Upload (Async)
             let ext = if epub { "epub" } else { "pdf" };
-            let (file_url, storage_key) = match crate::services::storage_service::upload_to_r2(&file_path_for_upload, &clerk_id_clone, &slug_clone, ext).await {
+            let (file_url, storage_key) = match crate::services::storage_service::upload_to_r2(
+                &file_path_for_upload,
+                &clerk_id_clone,
+                &slug_clone,
+                ext,
+            )
+            .await
+            {
                 Ok((url, key)) => (url, key),
                 Err(e) => return Err(format!("Upload failed: {:?}", e)),
             };
-            println!("[create_book] File uploaded successfully. Key: {}", storage_key);
+            println!(
+                "[create_book] File uploaded successfully. Key: {}",
+                storage_key
+            );
 
             println!("[create_book] Uploading cover if extracted...");
             let (cover_url, cover_key) = if let Some(cover_data) = cover_bytes {
-                match crate::services::storage_service::upload_image_to_r2(&cover_data, &clerk_id_clone, &slug_clone).await {
+                match crate::services::storage_service::upload_image_to_r2(
+                    &cover_data,
+                    &clerk_id_clone,
+                    &slug_clone,
+                )
+                .await
+                {
                     Ok((url, key)) => (Some(url), Some(key)),
                     Err(e) => {
                         eprintln!("Cover upload failed (non-fatal): {:?}", e);
@@ -234,120 +393,136 @@ pub async fn create_book(
             println!("[create_book] Updating DB record...");
             // 4. Update core record
             let books_coll = db_clone.collection::<Book>("books");
-            books_coll.update_one(
-                doc! { "_id": book_id },
-                doc! { "$set": {
-                    "file_url": &file_url,
-                    "storage_key": &storage_key,
-                    "cover_url": &cover_url,
-                    "cover_key": &cover_key,
-                    "total_segments": total_segments,
-                    "updated_at": DateTime::now(),
-                }}
-            ).await.map_err(|e| format!("DB Update failed: {}", e))?;
-
-            println!("[create_book] Generating embeddings for segments...");
-            let segment_contents: Vec<String> = chunks.iter().cloned().collect();
-            let embeddings = match crate::services::gemini_service::embed_texts(segment_contents).await {
-                Ok(embs) => {
-                    println!("[create_book] Generated {} embeddings successfully.", embs.len());
-                    Some(embs)
-                }
-                Err(e) => {
-                    let error_message = format!("[create_book] Failed to generate embeddings: {:?}", e);
-                    eprintln!("{}", error_message);
-                    None
-                }
-            };
-            let ai_warning = if embeddings.is_none() {
-                Some("AI features are unavailable for this book right now. Please try again later.".to_string())
-            } else {
-                None
-            };
+            books_coll
+                .update_one(
+                    doc! { "_id": book_id },
+                    doc! { "$set": {
+                        "file_url": &file_url,
+                        "storage_key": &storage_key,
+                        "cover_url": &cover_url,
+                        "cover_key": &cover_key,
+                        "total_segments": total_segments,
+                        "updated_at": DateTime::now(),
+                    }},
+                )
+                .await
+                .map_err(|e| format!("DB Update failed: {}", e))?;
 
             println!("[create_book] Generating segments and chapters...");
-            let segments: Vec<BookSegment> = chunks.into_iter().enumerate().map(|(i, content)| {
-                let word_count = content.split_whitespace().count() as i32;
-                let embedding = embeddings.as_ref().and_then(|embs| embs.get(i).cloned());
-                BookSegment {
-                    id: None,
-                    clerk_id: clerk_id_clone.clone(),
-                    book_id,
-                    content,
-                    segment_index: i as i32,
-                    page_number: 0,
-                    word_count,
-                    embedding,
-                    created_at: Some(DateTime::now()),
-                    updated_at: Some(DateTime::now()),
-                }
-            }).collect();
-
-            let chapters: Vec<BookChapter> = if epub {
-                match epub_service::extract_chapters_from_epub(&file_path_for_chapters) {
-                    Ok(chaps) => chaps.into_iter().enumerate().map(|(i, c)| BookChapter {
+            let segments: Vec<BookSegment> = located_chunks
+                .into_iter()
+                .enumerate()
+                .map(|(i, chunk)| {
+                    let word_count = chunk.content.split_whitespace().count() as i32;
+                    BookSegment {
                         id: None,
                         clerk_id: clerk_id_clone.clone(),
                         book_id,
-                        title: c.title,
-                        html_content: c.html,
-                        chapter_index: i as i32,
+                        content: chunk.content,
+                        segment_index: i as i32,
+                        page_number: chunk.page_start.unwrap_or(0),
+                        page_start: chunk.page_start,
+                        page_end: chunk.page_end,
+                        chapter_index: chunk.chapter_index,
+                        chapter_title: chunk.chapter_title,
+                        word_count,
                         created_at: Some(DateTime::now()),
                         updated_at: Some(DateTime::now()),
-                    }).collect(),
-                    Err(e) => {
-                        eprintln!("Chapter extraction failed: {:?}", e);
-                        Vec::new()
                     }
+                })
+                .collect();
+
+            let chapters: Vec<BookChapter> = if epub {
+                if !epub_chapters.is_empty() {
+                    epub_chapters
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, c)| BookChapter {
+                            id: None,
+                            clerk_id: clerk_id_clone.clone(),
+                            book_id,
+                            title: c.title,
+                            html_content: c.html,
+                            chapter_index: i as i32,
+                            created_at: Some(DateTime::now()),
+                            updated_at: Some(DateTime::now()),
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
                 }
             } else {
                 // PDF Chapter heuristics
                 pdf_service::text_to_html_chapters(&text)
-                    .into_iter().enumerate().map(|(i, c)| BookChapter {
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, c)| BookChapter {
                         id: None,
                         clerk_id: clerk_id_clone.clone(),
                         book_id,
-                        title: c.title.or_else(|| Some(format!("Page {}", i+1))),
+                        title: c.title.or_else(|| Some(format!("Page {}", i + 1))),
                         html_content: c.html,
                         chapter_index: i as i32,
                         created_at: Some(DateTime::now()),
                         updated_at: Some(DateTime::now()),
-                    }).collect()
+                    })
+                    .collect()
             };
 
             // Insert segments and chapters
             if !segments.is_empty() {
                 let segs_coll = db_clone.collection::<BookSegment>("book_segments");
-                segs_coll.insert_many(segments).await.map_err(|e| format!("Segments insert failed: {}", e))?;
+                segs_coll
+                    .insert_many(segments)
+                    .await
+                    .map_err(|e| format!("Segments insert failed: {}", e))?;
             }
             if !chapters.is_empty() {
                 let chaps_coll = db_clone.collection::<BookChapter>("book_chapters");
-                chaps_coll.insert_many(chapters).await.map_err(|e| format!("Chapters insert failed: {}", e))?;
+                chaps_coll
+                    .insert_many(chapters)
+                    .await
+                    .map_err(|e| format!("Chapters insert failed: {}", e))?;
             }
 
-            // Mark the book as readable even if AI indexing is temporarily unavailable.
+            // All reader data is present. Atlas embeds the new segments asynchronously.
             let books_coll = db_clone.collection::<Book>("books");
-            books_coll.update_one(
-                doc! { "_id": book_id },
-                doc! {
-                    "$set": {
-                        "processing_status": "ready",
-                        "processing_error": ai_warning,
-                        "updated_at": DateTime::now(),
-                    }
-                }
-            ).await.map_err(|e| format!("DB Update ready failed: {}", e))?;
+            books_coll
+                .update_one(
+                    doc! { "_id": book_id },
+                    doc! {
+                        "$set": {
+                            "processing_status": "ready",
+                            "processing_error": mongodb::bson::Bson::Null,
+                            "updated_at": DateTime::now(),
+                        }
+                    },
+                )
+                .await
+                .map_err(|e| format!("DB Update ready failed: {}", e))?;
 
             Ok(())
-        }.await;
+        }
+        .await;
 
         if let Err(e) = result {
-            eprintln!("[create_book] Background processing error for {}: {}", slug_clone, e);
-            if let Err(mark_err) = crate::services::book_service::mark_book_failed(&db_clone, book_id, &e).await {
-                eprintln!("[create_book] Failed to persist failure state for {}: {}", slug_clone, mark_err);
+            eprintln!(
+                "[create_book] Background processing error for {}: {}",
+                slug_clone, e
+            );
+            if let Err(mark_err) =
+                crate::services::book_service::mark_book_failed(&db_clone, book_id, &e).await
+            {
+                eprintln!(
+                    "[create_book] Failed to persist failure state for {}: {}",
+                    slug_clone, mark_err
+                );
             }
         } else {
-            println!("[create_book] Background processing COMPLETED for {}.", slug_clone);
+            println!(
+                "[create_book] Background processing COMPLETED for {}.",
+                slug_clone
+            );
         }
     });
 
@@ -388,7 +563,10 @@ pub async fn extract_metadata(
     let (title, author) = if epub {
         match epub_service::extract_metadata_from_epub(&temp_path) {
             Ok(m) => (m.title, m.author),
-            Err(e) => { eprintln!("EPUB metadata error: {}", e); (None, None) }
+            Err(e) => {
+                eprintln!("EPUB metadata error: {}", e);
+                (None, None)
+            }
         }
     } else {
         match pdf_service::extract_metadata(&temp_path) {
@@ -407,11 +585,15 @@ pub async fn extract_metadata(
         crate::services::image_service::generate_base64_cover(&temp_path).ok()
     };
 
-    (StatusCode::OK, Json(MetadataResponse {
-        title,
-        author,
-        cover_b64,
-    })).into_response()
+    (
+        StatusCode::OK,
+        Json(MetadataResponse {
+            title,
+            author,
+            cover_b64,
+        }),
+    )
+        .into_response()
 }
 
 /// GET /api/books — returns all books for the authenticated user, newest first.
@@ -425,21 +607,24 @@ pub async fn list_books(
         .sort(doc! { "created_at": -1 })
         .build();
 
-    match collection.find(doc! { "clerk_id": &user.user_id }).with_options(options).await {
+    match collection
+        .find(doc! { "clerk_id": &user.user_id })
+        .with_options(options)
+        .await
+    {
         Ok(mut cursor) => {
             let mut books: Vec<Book> = Vec::new();
             loop {
                 match cursor.advance().await {
-                    Ok(true) => {
-                        match cursor.deserialize_current() {
-                            Ok(book) => books.push(book),
-                            Err(e) => eprintln!("[list_books] Deserialize error: {:?}", e),
-                        }
-                    }
+                    Ok(true) => match cursor.deserialize_current() {
+                        Ok(book) => books.push(book),
+                        Err(e) => eprintln!("[list_books] Deserialize error: {:?}", e),
+                    },
                     Ok(false) => break,
                     Err(e) => {
                         eprintln!("[list_books] Cursor advance error: {:?}", e);
-                        return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read books").into_response();
+                        return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read books")
+                            .into_response();
                     }
                 }
             }
@@ -453,16 +638,18 @@ pub async fn list_books(
 }
 
 /// GET /api/books/public — returns all public Gutenberg books natively processed.
-pub async fn list_public_books(
-    State(db): State<Database>,
-) -> impl IntoResponse {
+pub async fn list_public_books(State(db): State<Database>) -> impl IntoResponse {
     let collection = db.collection::<Book>("books");
 
     let options = mongodb::options::FindOptions::builder()
         .sort(doc! { "slug": 1 })
         .build();
 
-    match collection.find(doc! { "clerk_id": "public", "processing_status": "ready" }).with_options(options).await {
+    match collection
+        .find(doc! { "clerk_id": "public", "processing_status": "ready" })
+        .with_options(options)
+        .await
+    {
         Ok(mut cursor) => {
             let mut books: Vec<Book> = Vec::new();
             while let Ok(true) = cursor.advance().await {
@@ -474,7 +661,11 @@ pub async fn list_public_books(
         }
         Err(e) => {
             eprintln!("[list_public_books] Query error: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to query public books").into_response()
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to query public books",
+            )
+                .into_response()
         }
     }
 }
@@ -488,7 +679,7 @@ pub async fn get_book(
     let collection = db.collection::<Book>("books");
 
     // Check for either the user's book OR a public Gutenberg book
-    let filter = doc! { 
+    let filter = doc! {
         "$or": [
             { "clerk_id": &user.user_id, "slug": &slug },
             { "clerk_id": "public", "slug": &slug }
@@ -513,7 +704,7 @@ pub async fn get_book_segments(
 ) -> impl IntoResponse {
     let collection = db.collection::<Book>("books");
 
-    let filter = doc! { 
+    let filter = doc! {
         "$or": [
             { "clerk_id": &user.user_id, "slug": &slug },
             { "clerk_id": "public", "slug": &slug }
@@ -530,7 +721,11 @@ pub async fn get_book_segments(
         .sort(doc! { "segment_index": 1 })
         .build();
 
-    match segments_coll.find(doc! { "book_id": book.id.unwrap() }).with_options(options).await {
+    match segments_coll
+        .find(doc! { "book_id": book.id.unwrap() })
+        .with_options(options)
+        .await
+    {
         Ok(mut cursor) => {
             let mut segments = Vec::new();
             while let Ok(true) = cursor.advance().await {
@@ -540,7 +735,11 @@ pub async fn get_book_segments(
             }
             (StatusCode::OK, Json(segments)).into_response()
         }
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch segments").into_response()
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to fetch segments",
+        )
+            .into_response(),
     }
 }
 
@@ -552,12 +751,12 @@ pub async fn get_book_chapters(
 ) -> impl IntoResponse {
     let collection = db.collection::<Book>("books");
 
-    let filter = doc! { 
+    let filter = doc! {
         "$or": [
             { "slug": &slug }
         ]
     }; // We can be more restrictive if needed, but for viewing we just need the slug if it's there.
-    
+
     let book = match collection.find_one(filter).await {
         Ok(Some(b)) => b,
         _ => return (StatusCode::NOT_FOUND, "Book not found").into_response(),
@@ -568,7 +767,11 @@ pub async fn get_book_chapters(
         .sort(doc! { "chapter_index": 1 })
         .build();
 
-    match chaps_coll.find(doc! { "book_id": book.id.unwrap() }).with_options(options).await {
+    match chaps_coll
+        .find(doc! { "book_id": book.id.unwrap() })
+        .with_options(options)
+        .await
+    {
         Ok(mut cursor) => {
             let mut chapters = Vec::new();
             while let Ok(true) = cursor.advance().await {
@@ -578,7 +781,11 @@ pub async fn get_book_chapters(
             }
             (StatusCode::OK, Json(chapters)).into_response()
         }
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch chapters").into_response()
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to fetch chapters",
+        )
+            .into_response(),
     }
 }
 
@@ -596,7 +803,7 @@ pub async fn get_book_file(
 ) -> impl IntoResponse {
     let collection = db.collection::<Book>("books");
 
-    let filter = doc! { 
+    let filter = doc! {
         "$or": [
             { "clerk_id": &user.user_id, "slug": &slug },
             { "clerk_id": "public", "slug": &slug }
@@ -606,15 +813,25 @@ pub async fn get_book_file(
     let book = match collection.find_one(filter).await {
         Ok(Some(b)) => b,
         _ => {
-            eprintln!("[get_book_file] Book not found for slug: '{}', user: '{}'", slug, user.user_id);
+            eprintln!(
+                "[get_book_file] Book not found for slug: '{}', user: '{}'",
+                slug, user.user_id
+            );
             return (StatusCode::NOT_FOUND, "Book not found").into_response();
         }
     };
 
-    eprintln!("[get_book_file] Found book '{}', storage_key='{}'", slug, book.storage_key);
+    eprintln!(
+        "[get_book_file] Found book '{}', storage_key='{}'",
+        slug, book.storage_key
+    );
 
     let is_epub = book.storage_key.ends_with(".epub") || book.clerk_id == "public";
-    let content_type = if is_epub { "application/epub+zip" } else { "application/pdf" };
+    let content_type = if is_epub {
+        "application/epub+zip"
+    } else {
+        "application/pdf"
+    };
 
     // 1. Try R2 first (for books that have been uploaded)
     if !book.storage_key.is_empty() {
@@ -623,13 +840,20 @@ pub async fn get_book_file(
                 return (
                     [
                         (axum::http::header::CONTENT_TYPE, content_type.to_string()),
-                        (axum::http::header::CACHE_CONTROL, "public, max-age=3600".to_string()),
+                        (
+                            axum::http::header::CACHE_CONTROL,
+                            "public, max-age=3600".to_string(),
+                        ),
                     ],
                     bytes,
-                ).into_response();
+                )
+                    .into_response();
             }
             Err(e) => {
-                eprintln!("[get_book_file] R2 fetch failed for key '{}': {:?}", book.storage_key, e);
+                eprintln!(
+                    "[get_book_file] R2 fetch failed for key '{}': {:?}",
+                    book.storage_key, e
+                );
             }
         }
     }
@@ -657,13 +881,23 @@ pub async fn get_book_file(
                         if bytes.starts_with(b"PK") {
                             return (
                                 [
-                                    (axum::http::header::CONTENT_TYPE, "application/epub+zip".to_string()),
-                                    (axum::http::header::CACHE_CONTROL, "public, max-age=3600".to_string()),
+                                    (
+                                        axum::http::header::CONTENT_TYPE,
+                                        "application/epub+zip".to_string(),
+                                    ),
+                                    (
+                                        axum::http::header::CACHE_CONTROL,
+                                        "public, max-age=3600".to_string(),
+                                    ),
                                 ],
                                 bytes.to_vec(),
-                            ).into_response();
+                            )
+                                .into_response();
                         } else {
-                            eprintln!("[get_book_file] Gutenberg returned non-EPUB data (bot block?) from {}", url);
+                            eprintln!(
+                                "[get_book_file] Gutenberg returned non-EPUB data (bot block?) from {}",
+                                url
+                            );
                         }
                     }
                 }
@@ -684,7 +918,10 @@ pub async fn fetch_gutenberg_book(
     let collection = db.collection::<Book>("books");
 
     // Check if globally cached
-    if let Ok(Some(book)) = collection.find_one(doc! { "slug": &slug, "clerk_id": "public" }).await {
+    if let Ok(Some(book)) = collection
+        .find_one(doc! { "slug": &slug, "clerk_id": "public" })
+        .await
+    {
         // If it exists, return it immediately. The frontend polls for chapters.
         return (StatusCode::OK, Json(book)).into_response();
     }
@@ -712,18 +949,28 @@ pub async fn fetch_gutenberg_book(
     };
 
     let books_coll = db.collection::<Book>("books");
-    
+
     // Attempt insertion — handle race conditions where another thread beat us to it
     let book_id = match books_coll.insert_one(book.clone()).await {
-        Ok(r) => r.inserted_id.as_object_id().expect("MongoDB generates ObjectId"),
+        Ok(r) => r
+            .inserted_id
+            .as_object_id()
+            .expect("MongoDB generates ObjectId"),
         Err(e) => {
             if e.to_string().contains("E11000") {
-                if let Ok(Some(existing_book)) = collection.find_one(doc! { "slug": &slug, "clerk_id": "public" }).await {
+                if let Ok(Some(existing_book)) = collection
+                    .find_one(doc! { "slug": &slug, "clerk_id": "public" })
+                    .await
+                {
                     return (StatusCode::OK, Json(existing_book)).into_response();
                 }
             }
             eprintln!("[gutenberg] Failed to insert placeholder: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to initialize book").into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to initialize book",
+            )
+                .into_response();
         }
     };
 
@@ -745,7 +992,10 @@ pub async fn fetch_gutenberg_book(
             // 1. Download EPUB bytes
             let epub_urls = [
                 format!("https://www.gutenberg.org/ebooks/{}.epub.images", id_clone),
-                format!("https://www.gutenberg.org/ebooks/{}.epub.noimages", id_clone),
+                format!(
+                    "https://www.gutenberg.org/ebooks/{}.epub.noimages",
+                    id_clone
+                ),
             ];
 
             let mut epub_bytes: Option<Vec<u8>> = None;
@@ -755,7 +1005,11 @@ pub async fn fetch_gutenberg_book(
                     if res.status().is_success() {
                         if let Ok(bytes) = res.bytes().await {
                             if bytes.starts_with(b"PK") {
-                                eprintln!("[gutenberg bg] Downloaded {} bytes from {}", bytes.len(), url);
+                                eprintln!(
+                                    "[gutenberg bg] Downloaded {} bytes from {}",
+                                    bytes.len(),
+                                    url
+                                );
                                 epub_bytes = Some(bytes.to_vec());
                                 break;
                             } else {
@@ -775,104 +1029,148 @@ pub async fn fetch_gutenberg_book(
 
             // 3. Extract metadata, text, chapters (blocking CPU work)
             let temp_path_clone = temp_path.clone();
-            let (text_result, chapters_result, metadata, _cover_bytes) = tokio::task::spawn_blocking(move || {
-                let text = epub_service::extract_text_from_epub(&temp_path_clone);
-                let chapters = epub_service::extract_chapters_from_epub(&temp_path_clone);
-                let meta = epub_service::extract_metadata_from_epub(&temp_path_clone).ok();
-                let cover = epub_service::extract_cover_from_epub(&temp_path_clone).map(|(b, _)| b);
-                (text, chapters, meta, cover)
-            }).await.map_err(|e| format!("Join error: {}", e))?;
+            let (text_result, chapters_result, metadata, _cover_bytes) =
+                tokio::task::spawn_blocking(move || {
+                    let text = epub_service::extract_text_from_epub(&temp_path_clone);
+                    let chapters = epub_service::extract_chapters_from_epub(&temp_path_clone);
+                    let meta = epub_service::extract_metadata_from_epub(&temp_path_clone).ok();
+                    let cover =
+                        epub_service::extract_cover_from_epub(&temp_path_clone).map(|(b, _)| b);
+                    (text, chapters, meta, cover)
+                })
+                .await
+                .map_err(|e| format!("Join error: {}", e))?;
 
             let text = text_result.map_err(|e| format!("Text extraction failed: {}", e))?;
             let chapters_vec = chapters_result.unwrap_or_default();
 
-            // 4. Chunk text for RAG (500-word segments)
+            // 4. Chunk text within EPUB chapter boundaries for RAG.
             let text_for_chunks = text.clone();
-            let (chunks, total_segments) = tokio::task::spawn_blocking(move || {
-                let chunk_size = std::env::var("BOOK_CHUNK_SIZE").unwrap_or("500".into()).parse().unwrap_or(500);
-                let chunk_overlap = std::env::var("BOOK_CHUNK_OVERLAP").unwrap_or("50".into()).parse().unwrap_or(50);
-                let chunks = book_service::chunk_text(&text_for_chunks, chunk_size, chunk_overlap);
+            let chapters_for_chunks = chapters_vec.clone();
+            let (located_chunks, total_segments) = tokio::task::spawn_blocking(move || {
+                let chunk_size = std::env::var("BOOK_CHUNK_SIZE")
+                    .unwrap_or("500".into())
+                    .parse()
+                    .unwrap_or(500);
+                let chunk_overlap = std::env::var("BOOK_CHUNK_OVERLAP")
+                    .unwrap_or("50".into())
+                    .parse()
+                    .unwrap_or(50);
+                let sources = if chapters_for_chunks.is_empty() {
+                    vec![book_service::SourceText {
+                        text: text_for_chunks,
+                        page_start: None,
+                        page_end: None,
+                        chapter_index: None,
+                        chapter_title: None,
+                    }]
+                } else {
+                    chapters_for_chunks
+                        .iter()
+                        .enumerate()
+                        .map(|(index, chapter)| book_service::SourceText {
+                            text: html2text::from_read(chapter.html.as_bytes(), usize::MAX)
+                                .unwrap_or_default(),
+                            page_start: None,
+                            page_end: None,
+                            chapter_index: Some(index as i32 + 1),
+                            chapter_title: chapter.title.clone(),
+                        })
+                        .collect()
+                };
+                let chunks = book_service::chunk_source_texts(sources, chunk_size, chunk_overlap);
                 let count = chunks.len() as i32;
                 (chunks, count)
-            }).await.map_err(|e| format!("Join error: {}", e))?;
+            })
+            .await
+            .map_err(|e| format!("Join error: {}", e))?;
 
             // 5. Upload EPUB to R2
-            let (file_url, storage_key) = match crate::services::storage_service::upload_to_r2(&temp_path, "public", &slug_clone, "epub").await {
+            let (file_url, storage_key) = match crate::services::storage_service::upload_to_r2(
+                &temp_path,
+                "public",
+                &slug_clone,
+                "epub",
+            )
+            .await
+            {
                 Ok((url, key)) => (url, key),
                 Err(e) => return Err(format!("R2 upload failed: {:?}", e)),
             };
 
             // 6. Cover Image
-            let cover_url = Some(format!("https://www.gutenberg.org/cache/epub/{}/pg{}.cover.medium.jpg", id_clone, id_clone));
+            let cover_url = Some(format!(
+                "https://www.gutenberg.org/cache/epub/{}/pg{}.cover.medium.jpg",
+                id_clone, id_clone
+            ));
             let cover_key: Option<String> = None;
 
             // 7. Update book record with real metadata
-            let title = metadata.as_ref().and_then(|m| m.title.clone())
+            let title = metadata
+                .as_ref()
+                .and_then(|m| m.title.clone())
                 .unwrap_or(format!("Gutenberg Book {}", id_clone));
-            let author = metadata.as_ref().and_then(|m| m.author.clone())
+            let author = metadata
+                .as_ref()
+                .and_then(|m| m.author.clone())
                 .unwrap_or("Unknown".to_string());
 
             let books_coll = db_clone.collection::<Book>("books");
-            books_coll.update_one(
-                doc! { "_id": book_id },
-                doc! { "$set": {
-                    "title": &title,
-                    "author": &author,
-                    "file_url": &file_url,
-                    "storage_key": &storage_key,
-                    "cover_url": &cover_url,
-                    "cover_key": &cover_key,
-                    "total_segments": total_segments,
-                    "file_size": epub_bytes.len() as i64,
-                    "updated_at": DateTime::now(),
-                }}
-            ).await.map_err(|e| format!("DB update failed: {}", e))?;
+            books_coll
+                .update_one(
+                    doc! { "_id": book_id },
+                    doc! { "$set": {
+                        "title": &title,
+                        "author": &author,
+                        "file_url": &file_url,
+                        "storage_key": &storage_key,
+                        "cover_url": &cover_url,
+                        "cover_key": &cover_key,
+                        "total_segments": total_segments,
+                        "file_size": epub_bytes.len() as i64,
+                        "updated_at": DateTime::now(),
+                    }},
+                )
+                .await
+                .map_err(|e| format!("DB update failed: {}", e))?;
 
             // 8. Insert RAG segments
-            eprintln!("[gutenberg bg] Generating embeddings for Gutenberg segments...");
-            let segment_contents: Vec<String> = chunks.iter().cloned().collect();
-            let embeddings = match crate::services::gemini_service::embed_texts(segment_contents).await {
-                Ok(embs) => {
-                    eprintln!("[gutenberg bg] Generated {} embeddings successfully.", embs.len());
-                    Some(embs)
-                }
-                Err(e) => {
-                    let error_message = format!("[gutenberg bg] Failed to generate embeddings: {:?}", e);
-                    eprintln!("{}", error_message);
-                    None
-                }
-            };
-            let ai_warning = if embeddings.is_none() {
-                Some("AI features are unavailable for this book right now. Please try again later.".to_string())
-            } else {
-                None
-            };
-
-            let segments: Vec<BookSegment> = chunks.into_iter().enumerate().map(|(i, content)| {
-                let word_count = content.split_whitespace().count() as i32;
-                let embedding = embeddings.as_ref().and_then(|embs| embs.get(i).cloned());
-                BookSegment {
-                    id: None,
-                    clerk_id: "public".into(),
-                    book_id,
-                    content,
-                    segment_index: i as i32,
-                    page_number: 0,
-                    word_count,
-                    embedding,
-                    created_at: Some(DateTime::now()),
-                    updated_at: Some(DateTime::now()),
-                }
-            }).collect();
+            let segments: Vec<BookSegment> = located_chunks
+                .into_iter()
+                .enumerate()
+                .map(|(i, chunk)| {
+                    let word_count = chunk.content.split_whitespace().count() as i32;
+                    BookSegment {
+                        id: None,
+                        clerk_id: "public".into(),
+                        book_id,
+                        content: chunk.content,
+                        segment_index: i as i32,
+                        page_number: chunk.page_start.unwrap_or(0),
+                        page_start: chunk.page_start,
+                        page_end: chunk.page_end,
+                        chapter_index: chunk.chapter_index,
+                        chapter_title: chunk.chapter_title,
+                        word_count,
+                        created_at: Some(DateTime::now()),
+                        updated_at: Some(DateTime::now()),
+                    }
+                })
+                .collect();
 
             if !segments.is_empty() {
                 let segs_coll = db_clone.collection::<BookSegment>("book_segments");
-                segs_coll.insert_many(segments).await.map_err(|e| format!("Segments insert: {}", e))?;
+                segs_coll
+                    .insert_many(segments)
+                    .await
+                    .map_err(|e| format!("Segments insert: {}", e))?;
             }
 
             // 9. Insert HTML chapters
-            let chapters: Vec<BookChapter> = chapters_vec.into_iter().enumerate().map(|(i, c)| {
-                BookChapter {
+            let chapters: Vec<BookChapter> = chapters_vec
+                .into_iter()
+                .enumerate()
+                .map(|(i, c)| BookChapter {
                     id: None,
                     clerk_id: "public".into(),
                     book_id,
@@ -881,39 +1179,58 @@ pub async fn fetch_gutenberg_book(
                     chapter_index: i as i32,
                     created_at: Some(DateTime::now()),
                     updated_at: Some(DateTime::now()),
-                }
-            }).collect();
+                })
+                .collect();
 
             if !chapters.is_empty() {
                 let num_chapters = chapters.len();
                 let chaps_coll = db_clone.collection::<BookChapter>("book_chapters");
-                chaps_coll.insert_many(chapters).await.map_err(|e| format!("Chapters insert: {}", e))?;
-                eprintln!("[gutenberg bg] ✅ Finished processing {}: {} segments, {} chapters",
-                    slug_clone, total_segments, num_chapters);
+                chaps_coll
+                    .insert_many(chapters)
+                    .await
+                    .map_err(|e| format!("Chapters insert: {}", e))?;
+                eprintln!(
+                    "[gutenberg bg] ✅ Finished processing {}: {} segments, {} chapters",
+                    slug_clone, total_segments, num_chapters
+                );
             } else {
-                eprintln!("[gutenberg bg] ✅ Finished processing {}: {} segments, 0 chapters",
-                    slug_clone, total_segments);
+                eprintln!(
+                    "[gutenberg bg] ✅ Finished processing {}: {} segments, 0 chapters",
+                    slug_clone, total_segments
+                );
             }
 
-            // Mark Gutenberg cache book as readable even when AI indexing is unavailable.
+            // All reader data is present. Atlas embeds the new segments asynchronously.
             let books_coll = db_clone.collection::<Book>("books");
-            books_coll.update_one(
-                doc! { "_id": book_id },
-                doc! {
-                    "$set": {
-                        "processing_status": "ready",
-                        "processing_error": ai_warning,
-                        "updated_at": DateTime::now(),
-                    }
-                }
-            ).await.map_err(|e| format!("DB Update ready failed: {}", e))?;
+            books_coll
+                .update_one(
+                    doc! { "_id": book_id },
+                    doc! {
+                        "$set": {
+                            "processing_status": "ready",
+                            "processing_error": mongodb::bson::Bson::Null,
+                            "updated_at": DateTime::now(),
+                        }
+                    },
+                )
+                .await
+                .map_err(|e| format!("DB Update ready failed: {}", e))?;
             Ok(())
-        }.await;
+        }
+        .await;
 
         if let Err(e) = result {
-            eprintln!("[gutenberg] Background processing error for {}: {}", slug_clone, e);
-            if let Err(mark_err) = crate::services::book_service::mark_book_failed(&db_clone, book_id, &e).await {
-                eprintln!("[gutenberg] Failed to persist failure state for {}: {}", slug_clone, mark_err);
+            eprintln!(
+                "[gutenberg] Background processing error for {}: {}",
+                slug_clone, e
+            );
+            if let Err(mark_err) =
+                crate::services::book_service::mark_book_failed(&db_clone, book_id, &e).await
+            {
+                eprintln!(
+                    "[gutenberg] Failed to persist failure state for {}: {}",
+                    slug_clone, mark_err
+                );
             }
         }
     });
@@ -945,13 +1262,19 @@ pub async fn claim_book(
     match books_coll.update_one(filter, update).await {
         Ok(res) if res.matched_count > 0 => {
             // Also update segments
-            let _ = segments_coll.update_many(
-                doc! { "book_id": book_oid, "clerk_id": "anonymous" },
-                doc! { "$set": { "clerk_id": &user.user_id } }
-            ).await;
+            let _ = segments_coll
+                .update_many(
+                    doc! { "book_id": book_oid, "clerk_id": "anonymous" },
+                    doc! { "$set": { "clerk_id": &user.user_id } },
+                )
+                .await;
             (StatusCode::OK, "Book claimed successfully").into_response()
         }
         Ok(_) => (StatusCode::NOT_FOUND, "Book already claimed or not found").into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("DB Error: {}", e)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("DB Error: {}", e),
+        )
+            .into_response(),
     }
 }
