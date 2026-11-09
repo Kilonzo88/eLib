@@ -1,11 +1,10 @@
+use crate::services::pdf_service::BookMetadata;
 use anyhow::{Result, anyhow};
 use epub::doc::EpubDoc;
-use crate::services::pdf_service::BookMetadata;
 
 /// Extracts all text from an EPUB file, concatenating chapters in spine order.
 pub fn extract_text_from_epub(epub_path: &std::path::Path) -> Result<String> {
-    let mut doc = EpubDoc::new(epub_path)
-        .map_err(|e| anyhow!("Failed to open EPUB: {:?}", e))?;
+    let mut doc = EpubDoc::new(epub_path).map_err(|e| anyhow!("Failed to open EPUB: {:?}", e))?;
 
     let mut full_text = String::new();
 
@@ -14,7 +13,8 @@ pub fn extract_text_from_epub(epub_path: &std::path::Path) -> Result<String> {
     for _ in 0..num_chapters {
         if let Some((content_bytes, _mime)) = doc.get_current() {
             // Convert XHTML chapter bytes → plain text via html2text
-            let text = html2text::from_read(content_bytes.as_slice(), usize::MAX).unwrap_or_default();
+            let text =
+                html2text::from_read(content_bytes.as_slice(), usize::MAX).unwrap_or_default();
             full_text.push_str(&text);
             full_text.push('\n');
         }
@@ -29,6 +29,7 @@ pub fn extract_text_from_epub(epub_path: &std::path::Path) -> Result<String> {
 }
 
 /// Structural chapter data extracted directly from EPUB
+#[derive(Clone)]
 pub struct ExtractedChapter {
     pub title: Option<String>,
     pub html: String,
@@ -70,8 +71,7 @@ fn extract_title_from_html(html: &str) -> Option<String> {
 
 /// Extracts HTML chapters from an EPUB without stripping tags, for native rendering.
 pub fn extract_chapters_from_epub(epub_path: &std::path::Path) -> Result<Vec<ExtractedChapter>> {
-    let mut doc = EpubDoc::new(epub_path)
-        .map_err(|e| anyhow!("Failed to open EPUB: {:?}", e))?;
+    let mut doc = EpubDoc::new(epub_path).map_err(|e| anyhow!("Failed to open EPUB: {:?}", e))?;
 
     let mut chapters = Vec::new();
 
@@ -86,7 +86,11 @@ pub fn extract_chapters_from_epub(epub_path: &std::path::Path) -> Result<Vec<Ext
             // Fallback: try to get title from EPUB TOC
             if title.is_none() {
                 title = doc.toc.get(chapter_idx).and_then(|t| {
-                    if t.label.trim().is_empty() { None } else { Some(t.label.clone()) }
+                    if t.label.trim().is_empty() {
+                        None
+                    } else {
+                        Some(t.label.clone())
+                    }
                 });
             }
 
@@ -113,11 +117,16 @@ pub fn extract_chapters_from_epub(epub_path: &std::path::Path) -> Result<Vec<Ext
 
 /// Extracts title and author from EPUB Dublin Core metadata.
 pub fn extract_metadata_from_epub(epub_path: &std::path::Path) -> Result<BookMetadata> {
-    let doc = EpubDoc::new(epub_path)
-        .map_err(|e| anyhow!("Failed to open EPUB: {:?}", e))?;
+    let doc = EpubDoc::new(epub_path).map_err(|e| anyhow!("Failed to open EPUB: {:?}", e))?;
 
-    let title = doc.mdata("title").map(|m| m.value.clone()).filter(|s| !s.trim().is_empty());
-    let author = doc.mdata("creator").map(|m| m.value.clone()).filter(|s| !s.trim().is_empty());
+    let title = doc
+        .mdata("title")
+        .map(|m| m.value.clone())
+        .filter(|s| !s.trim().is_empty());
+    let author = doc
+        .mdata("creator")
+        .map(|m| m.value.clone())
+        .filter(|s| !s.trim().is_empty());
 
     Ok(BookMetadata { title, author })
 }
